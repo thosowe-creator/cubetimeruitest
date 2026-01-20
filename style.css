@@ -71,6 +71,16 @@ body {
 
 .history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
 
+/*
+  Timer vertical centering:
+  The timer block is centered in the remaining space under the top controls,
+  which can feel "too low" on small screens.
+  Apply a small upward shift so the timer + averages sit closer to the visual center.
+*/
+.timer-center-shift {
+  transform: translateY(clamp(-3.5rem, -6vh, -1.5rem));
+}
+
 /* Smaller-height screens: compress paddings and reserved blocks so everything fits without page scroll */
 @media (max-height: 700px) {
   .scramble-bottom-area { height: 150px; }
