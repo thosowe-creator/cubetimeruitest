@@ -41,7 +41,7 @@
     <script src="https://cdn.cubing.net/v0/js/scramble-display" type="module"></script>
 
 </head>
-<body class="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-200">
+<body class="h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-200">
 
     <!-- Header (PC & Mobile shared, layout adjusts) -->
     <header class="w-full h-14 md:h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 flex items-center justify-between z-40 shrink-0 transition-colors duration-200">
@@ -311,7 +311,7 @@
     <main id="mainContent" class="main-container flex flex-col md:flex-row p-4 gap-6 flex-grow min-h-0">
         
         <!-- Timer View Section (Shown by default on Mobile/Desktop) -->
-        <div id="timerSection" class="flex-grow flex flex-col items-center justify-between order-1 w-full min-h-0">
+        <div id="timerSection" class="flex-grow flex flex-col items-center justify-start gap-6 order-1 w-full min-h-0">
             <div class="w-full space-y-6">
                 <!-- Event Select (Scroll) -->
                 <div class="flex flex-col items-center gap-3"> 
@@ -431,14 +431,7 @@
                 
                 <div id="statusHint" class="bg-white dark:bg-slate-800 px-6 py-2 rounded-full text-slate-400 text-xs font-bold tracking-widest shadow-sm border border-slate-100 dark:border-slate-700 uppercase transition-all duration-200"></div>
             </div>
-
-            <!-- Buttons: Penalty/Delete -->
-            <div id="penaltyBar" class="w-full max-w-xl flex justify-center gap-4 mt-2 mb-6 md:static sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur px-2 py-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <button id="plus2Btn" class="penalty-btn inactive" onclick="togglePenalty('+2')">+2</button>
-                <button id="dnfBtn" class="penalty-btn inactive" onclick="togglePenalty('DNF')">DNF</button>
             </div>
-        </div>
-
         <!-- History View Section (Hidden on Mobile by default, Visible on Desktop) -->
         <div id="historySection" class="hidden md:flex w-full md:w-[360px] history-panel flex-col order-2 overflow-hidden shrink-0 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 h-full">
             <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 shrink-0 rounded-t-3xl">
