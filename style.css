@@ -501,15 +501,15 @@ body.no-scroll { overflow: hidden; }
 
 .timer-center-shift {
   /* Visually lift the timer cluster slightly so it reads centered in the full layout */
-  transform: translateY(-6vh);
+  transform: translateY(-8vh);
 }
 
 @media (max-height: 700px) {
-  .timer-center-shift { transform: translateY(-4vh); }
+  .timer-center-shift { transform: translateY(-5vh); }
 }
 
 @media (min-width: 768px) {
-  .timer-center-shift { transform: translateY(-4vh); }
+  .timer-center-shift { transform: translateY(-5vh); }
 }
 
 /* Make tap targets consistently clickable on iOS inside scroll areas */
