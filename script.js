@@ -394,7 +394,7 @@ const KNOWN_ISSUES = [
       en: 'Further UI/UX improvements are planned.',
     },
     status: 'planning',
-    since: '2026.01.19'
+    since: '2026.01.20'
   }
 ];
 // Lazy Loading Vars
