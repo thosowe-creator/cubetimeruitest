@@ -246,17 +246,44 @@ let i18nObserver = null;
 let i18nRaf = 0;
 function ensureI18nObserver() {
   if (i18nObserver) return;
+
+  const roots = () => {
+    // Only watch/translate areas where text is actually replaced dynamically
+    // (Modals / overlays). Avoid scanning the entire app during rapid timer UI updates.
+    return [
+      'btOverlay',
+      'sessionOverlay',
+      'mbfScrambleOverlay',
+      'mbfResultOverlay',
+      'statsOverlay',
+      'settingsOverlay',
+      'avgShareOverlay',
+      'modalOverlay',
+      'updateLogOverlay',
+      'knownIssuesOverlay',
+    ]
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+  };
+
   const debounced = () => {
     if (i18nRaf) cancelAnimationFrame(i18nRaf);
     i18nRaf = requestAnimationFrame(() => {
-      try { applyAutoI18n(document); } catch (_) {}
+      try {
+        // Translate only modal roots (fast)
+        for (const r of roots()) applyAutoI18n(r);
+      } catch (_) {}
     });
   };
+
   i18nObserver = new MutationObserver(debounced);
   try {
-    i18nObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    for (const r of roots()) {
+      i18nObserver.observe(r, { childList: true, subtree: true, characterData: true });
+    }
   } catch (_) {}
 }
+
 window.setLanguage = (lang) => {
   if (lang !== 'ko' && lang !== 'en') return;
   currentLang = lang;
@@ -451,6 +478,8 @@ window.switchMobileTab = (tab) => {
         // Show Timer, Hide History
         timerSection.classList.remove('hidden');
         historySection.classList.add('hidden');
+        // Ensure we don't leave mobile-only flex layout on history section
+        historySection.classList.remove('flex');
         
         // Update Tab Colors
         mobTabTimer.className = "flex flex-col items-center justify-center w-full h-full text-blue-600 dark:text-blue-400";
@@ -1948,6 +1977,7 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         // Prevent default always, including key repeat, to stop page scrolling.
         e.preventDefault();
+        e.stopPropagation();
         if (!e.repeat) handleStart(e);
         return;
     }
@@ -1970,14 +2000,15 @@ window.addEventListener('keydown', (e) => {
             saveData();
         }
     }
-});
+}, { capture: true });
 
 window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
+        e.stopPropagation();
         if (!editingSessionId) handleEnd(e);
     }
-});
+}, { capture: true });
 const interactiveArea = document.getElementById('timerInteractiveArea');
 interactiveArea.addEventListener('touchstart', handleStart, { passive: false });
 interactiveArea.addEventListener('touchend', handleEnd, { passive: false });
