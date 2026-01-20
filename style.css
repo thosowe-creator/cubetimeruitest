@@ -112,7 +112,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px
 input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e2e8f0; border-radius: 2px; }
 .dark input[type=range]::-webkit-slider-runnable-track { background: #475569; }
 
-.penalty-btn { flex: 1; padding: 1rem; font-size: 0.875rem; font-weight: 700; border-radius: 0.75rem; transition: all 0.2s; border: 1px solid #e2e8f0; }
+.penalty-btn { flex: 1; padding: 1rem; font-size: 0.875rem; font-weight: 700; border-radius: 0.75rem; transition: all 0.2s; border: 1px solid #e2e8f0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .dark .penalty-btn { border-color: #334155; background-color: #1e293b; color: #94a3b8; }
 .penalty-btn.active-plus2 { background-color: #ffedd5; border-color: #fed7aa; color: #ea580c; }
 .dark .penalty-btn.active-plus2 { background-color: #7c2d12; border-color: #fdba74; color: #ffedd5; }
@@ -130,6 +130,8 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cur
   background: white;
   color: #64748b;
   transition: all 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .dark .history-pen-btn {
   border-color: #334155;
@@ -281,7 +283,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cur
 
 /* While timing, we intentionally prevent page scroll to avoid accidental movement */
 body.no-scroll { overflow: hidden; }
-.avg-badge { padding: 1rem 1.5rem; border-radius: 1rem; background: white; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); min-width: 140px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.1s; }
+.avg-badge { padding: 1rem 1.5rem; border-radius: 1rem; background: white; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); min-width: 140px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.1s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .dark .avg-badge { background-color: #1e293b; border-color: #334155; }
 .avg-badge:active { transform: scale(0.95); }
 .tools-dropdown { position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: none; flex-direction: column; overflow: hidden; z-index: 60; width: 160px; }
@@ -498,6 +500,20 @@ body.no-scroll { overflow: hidden; }
 
 
 .timer-center-shift {
-  /* Keep the timer visually centered (no vertical bias) */
-  transform: translateY(0);
+  /* Visually lift the timer cluster slightly so it reads centered in the full layout */
+  transform: translateY(-6vh);
 }
+
+@media (max-height: 700px) {
+  .timer-center-shift { transform: translateY(-4vh); }
+}
+
+@media (min-width: 768px) {
+  .timer-center-shift { transform: translateY(-4vh); }
+}
+
+/* Make tap targets consistently clickable on iOS inside scroll areas */
+button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+/* History list (mobile/desktop): smooth scroll + reliable taps */
+#historyList { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
