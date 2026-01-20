@@ -246,44 +246,17 @@ let i18nObserver = null;
 let i18nRaf = 0;
 function ensureI18nObserver() {
   if (i18nObserver) return;
-
-  const roots = () => {
-    // Only watch/translate areas where text is actually replaced dynamically
-    // (Modals / overlays). Avoid scanning the entire app during rapid timer UI updates.
-    return [
-      'btOverlay',
-      'sessionOverlay',
-      'mbfScrambleOverlay',
-      'mbfResultOverlay',
-      'statsOverlay',
-      'settingsOverlay',
-      'avgShareOverlay',
-      'modalOverlay',
-      'updateLogOverlay',
-      'knownIssuesOverlay',
-    ]
-      .map(id => document.getElementById(id))
-      .filter(Boolean);
-  };
-
   const debounced = () => {
     if (i18nRaf) cancelAnimationFrame(i18nRaf);
     i18nRaf = requestAnimationFrame(() => {
-      try {
-        // Translate only modal roots (fast)
-        for (const r of roots()) applyAutoI18n(r);
-      } catch (_) {}
+      try { applyAutoI18n(document); } catch (_) {}
     });
   };
-
   i18nObserver = new MutationObserver(debounced);
   try {
-    for (const r of roots()) {
-      i18nObserver.observe(r, { childList: true, subtree: true, characterData: true });
-    }
+    i18nObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
   } catch (_) {}
 }
-
 window.setLanguage = (lang) => {
   if (lang !== 'ko' && lang !== 'en') return;
   currentLang = lang;
@@ -478,8 +451,6 @@ window.switchMobileTab = (tab) => {
         // Show Timer, Hide History
         timerSection.classList.remove('hidden');
         historySection.classList.add('hidden');
-        // Ensure we don't leave mobile-only flex layout on history section
-        historySection.classList.remove('flex');
         
         // Update Tab Colors
         mobTabTimer.className = "flex flex-col items-center justify-center w-full h-full text-blue-600 dark:text-blue-400";
@@ -935,6 +906,39 @@ function togglePenalty(p) {
     }
     
     updateUI(); updatePenaltyBtns(targetSolve); saveData();
+}
+
+
+// Toggle penalty for a specific solve (History buttons)
+function toggleSolvePenalty(id, penalty) {
+    if (isRunning) return;
+    const i = solves.findIndex(s => s.id === id);
+    if (i === -1) return;
+    const s = solves[i];
+    if (penalty === '+2') {
+        s.penalty = (s.penalty === '+2') ? null : '+2';
+    } else if (penalty === 'DNF') {
+        s.penalty = (s.penalty === 'DNF') ? null : 'DNF';
+    } else {
+        return;
+    }
+    // Ensure exclusivity (DNF vs +2)
+    if (s.penalty === 'DNF') {
+        // nothing else
+    }
+    // If user toggled the most recent solve of the current event/session, reflect it on the main timer readout
+    const sid = getCurrentSessionId();
+    const currentList = solves.filter(x => x.event === currentEvent && x.sessionId === sid);
+    if (currentList.length && currentList[0].id === id && timerEl) {
+        if (s.penalty === 'DNF') {
+            timerEl.innerText = 'DNF';
+        } else {
+            const t = s.time + (s.penalty === '+2' ? 2000 : 0);
+            timerEl.innerText = formatTime(t) + (s.penalty === '+2' ? '+' : '');
+        }
+    }
+    updateUI();
+    saveData();
 }
 // --- Data Persistence ---
 function exportData() {
@@ -1660,43 +1664,41 @@ function formatTime(ms) {
 // Updated UpdateUI with Lazy Loading support
 function updateUI() {
     const sid = getCurrentSessionId();
-    const filtered = solves.filter(s => s.event === currentEvent && s.sessionId === sid);
-
+    let filtered = solves.filter(s => s.event === currentEvent && s.sessionId === sid);
     const activeSession = (sessions[currentEvent] || []).find(s => s.isActive);
-    if (activeSession) {
-        const el = document.getElementById('currentSessionNameDisplay');
-        if (el) el.innerText = activeSession.name;
-    }
-
-    // Lazy Render
+    if (activeSession) document.getElementById('currentSessionNameDisplay').innerText = activeSession.name;
+    
+    // Lazy Render Logic
     const subset = filtered.slice(0, displayedSolvesCount);
-
+    
     const solvePrimaryText = (s) => {
         if (s.event === '333mbf' && s.mbf) {
             return s.mbf.resultText || `${s.mbf.solved}/${s.mbf.attempted} ${formatClockTime(s.mbf.timeMs || s.time)}`;
         }
-        const base = (s.penalty === 'DNF')
-            ? 'DNF'
-            : formatTime(s.penalty === '+2' ? s.time + 2000 : s.time);
+        const base = (s.penalty === 'DNF') ? 'DNF' : formatTime(s.penalty === '+2' ? s.time + 2000 : s.time);
         return `${base}${s.penalty === '+2' ? '+' : ''}`;
-    };
+    }
 
-    historyList.innerHTML = subset.map(s => `
+    historyList.innerHTML = subset.map((s, idx) => {
+        const plus2Cls = s.penalty === '+2' ? 'hist-pen-btn active-plus2' : 'hist-pen-btn';
+        const dnfCls = s.penalty === 'DNF' ? 'hist-pen-btn active-dnf' : 'hist-pen-btn';
+        return `
         <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-3 rounded-xl flex justify-between items-center group cursor-pointer hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all" onclick="showSolveDetails(${s.id})">
-            <span class="font-bold text-slate-700 dark:text-slate-200 text-sm">${solvePrimaryText(s)}</span>
+            <div class="flex flex-col">
+                <span class="font-bold text-slate-700 dark:text-slate-200 text-sm">${solvePrimaryText(s)}</span>
+                <span class="text-[10px] font-bold text-slate-400">${s.date || ''}</span>
+            </div>
             <div class="flex items-center gap-2">
-                ${s.event === '333mbf' ? '' : `
-                    <button class="history-pen-btn ${s.penalty === '+2' ? 'active-plus2' : ''}" onclick="event.stopPropagation(); toggleSolvePenalty(${s.id}, '+2')">+2</button>
-                    <button class="history-pen-btn ${s.penalty === 'DNF' ? 'active-dnf' : ''}" onclick="event.stopPropagation(); toggleSolvePenalty(${s.id}, 'DNF')">DNF</button>
-                `}
-                <button onclick="event.stopPropagation(); deleteSolve(${s.id})" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 font-black text-lg leading-none" aria-label="Delete">&times;</button>
+                <button class="${plus2Cls}" onclick="event.stopPropagation(); toggleSolvePenalty(${s.id}, '+2')">+2</button>
+                <button class="${dnfCls}" onclick="event.stopPropagation(); toggleSolvePenalty(${s.id}, 'DNF')">DNF</button>
+                <button onclick="event.stopPropagation(); deleteSolve(${s.id})" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400" aria-label="Delete">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
             </div>
         </div>
-    `).join('') || '<div class="text-center py-10 text-slate-300 text-[11px] italic">No solves yet</div>';
-
+    `;
+    }).join('') || '<div class="text-center py-10 text-slate-300 text-[11px] italic">No solves yet</div>';
     solveCountEl.innerText = filtered.length;
-
-    // Stats
     if (currentEvent === '333mbf') {
         labelPrimaryAvg.innerText = "-";
         displayPrimaryAvg.innerText = "-";
@@ -1706,32 +1708,14 @@ function updateUI() {
         if (activeTool === 'graph') renderHistoryGraph();
         return;
     }
-
-    if (isAo5Mode) {
-        labelPrimaryAvg.innerText = "Ao5";
-        displayPrimaryAvg.innerText = calculateAvg(filtered, 5);
-    } else {
-        labelPrimaryAvg.innerText = "Mo3";
-        displayPrimaryAvg.innerText = calculateAvg(filtered, 3, true);
-    }
+    if (isAo5Mode) { labelPrimaryAvg.innerText = "Ao5"; displayPrimaryAvg.innerText = calculateAvg(filtered, 5); } 
+    else { labelPrimaryAvg.innerText = "Mo3"; displayPrimaryAvg.innerText = calculateAvg(filtered, 3, true); }
     displayAo12.innerText = calculateAvg(filtered, 12);
-
-    const valid = filtered
-        .filter(s => s.penalty !== 'DNF')
-        .map(s => s.penalty === '+2' ? s.time + 2000 : s.time);
-
-    sessionAvgEl.innerText = valid.length
-        ? formatTime(valid.reduce((a, b) => a + b, 0) / valid.length)
-        : "-";
-
-    bestSolveEl.innerText = valid.length
-        ? formatTime(Math.min(...valid))
-        : "-";
-
+    let valid = filtered.filter(s=>s.penalty!=='DNF').map(s=>s.penalty==='+2'?s.time+2000:s.time);
+    sessionAvgEl.innerText = valid.length ? formatTime(valid.reduce((a,b)=>a+b,0)/valid.length) : "-";
+    bestSolveEl.innerText = valid.length ? formatTime(Math.min(...valid)) : "-";
     if (activeTool === 'graph') renderHistoryGraph();
 }
-
-
 // Infinite Scroll Event Listener
 historyList.addEventListener('scroll', () => {
     if (historyList.scrollTop + historyList.clientHeight >= historyList.scrollHeight - 50) {
@@ -2008,7 +1992,6 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         // Prevent default always, including key repeat, to stop page scrolling.
         e.preventDefault();
-        e.stopPropagation();
         if (!e.repeat) handleStart(e);
         return;
     }
@@ -2031,15 +2014,14 @@ window.addEventListener('keydown', (e) => {
             saveData();
         }
     }
-}, { capture: true });
+});
 
 window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
-        e.stopPropagation();
         if (!editingSessionId) handleEnd(e);
     }
-}, { capture: true });
+});
 const interactiveArea = document.getElementById('timerInteractiveArea');
 interactiveArea.addEventListener('touchstart', handleStart, { passive: false });
 interactiveArea.addEventListener('touchend', handleEnd, { passive: false });
