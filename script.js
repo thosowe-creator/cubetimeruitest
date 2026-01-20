@@ -1836,6 +1836,10 @@ function handleStart(e) {
     }, holdDuration); 
 }
 function handleEnd(e) {
+    // Allow taps on UI controls inside the interactive area (avg badges, buttons, dropdown)
+    // to behave like normal clicks on mobile (iOS can cancel the click if we preventDefault on touchend).
+    if (e && e.type !== 'keydown' && e.target && (e.target.closest('.avg-badge') || e.target.closest('button') || e.target.closest('.tools-dropdown'))) return;
+
     // [CRITICAL FIX] Prevent immediate inspection restart after stopping timer
     if (Date.now() - lastStopTimestamp < 500) return;
     // BT 모드일 때
