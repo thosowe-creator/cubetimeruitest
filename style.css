@@ -1,10 +1,8 @@
 html, body { height: 100%; }
-html { height: 100dvh; overflow: hidden; }
 body {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   font-weight: 400;
   touch-action: manipulation;
-  height: 100dvh;
   overflow: hidden; /* prevent page scroll (spacebar / layout growth) */
 }
 
@@ -13,8 +11,7 @@ body {
   font-family: inherit;
   font-variant-numeric: tabular-nums;
   /* Base size (viewport-budget block near the end may override) */
-  /* Use vmin so the timer never exceeds available height on wide screens */
-  font-size: clamp(4rem, 16vmin, 13rem);
+  font-size: clamp(5.6rem, 18vw, 13rem);
   font-weight: 400; /* thinner */
   line-height: 1;
   transition: color 0.1s;
@@ -34,42 +31,20 @@ body {
   width: 100%;
 }
 
-/* Layout/scroll policy
-   - Body does not scroll
-   - Main content does not scroll (prevents timer clipping)
-   - Only inner panels (history list, modals) may scroll
-   - Padding-bottom accounts for fixed mobile bottom nav + safe-area
-*/
+/* Keep the app in the viewport and let only internal panels scroll */
 .main-container {
-  flex: 1 1 auto;
-  min-height: 0;
+  height: calc(100dvh - 3.5rem - 4rem - env(safe-area-inset-bottom));
   overflow: hidden;
-  /* 4rem = mobile bottom nav height */
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
 }
 @media (min-width: 768px) {
   .main-container {
-    padding-bottom: 1rem;
+    height: calc(100dvh - 4rem);
   }
 }
-
 .modal-overlay { background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
 .modal-overlay.active { display: flex; }
-
-/* Settings modal: allow internal scroll on mobile */
-#settingsModal {
-  max-height: calc(100dvh - 2rem);
-  display: flex;
-  flex-direction: column;
-}
-#settingsModal .settings-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 .history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
+@media (min-width: 768px) { .history-panel { height: calc(100dvh - 120px); } }
 
 /* Smaller-height screens: compress paddings and reserved blocks so everything fits without page scroll */
 @media (max-height: 700px) {
@@ -115,155 +90,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cur
 .dark .penalty-btn.active-dnf { background-color: #7f1d1d; border-color: #fca5a5; color: #fee2e2; }
 .penalty-btn.inactive { background-color: white; color: #94a3b8; }
 .dark .penalty-btn.inactive { background-color: #1e293b; color: #64748b; }
-/* Compact penalty buttons used inside History list */
-.history-pen-btn {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.70rem;
-  font-weight: 800;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #64748b;
-  transition: all 0.15s;
-}
-.dark .history-pen-btn {
-  border-color: #334155;
-  background: #1e293b;
-  color: #94a3b8;
-}
-.history-pen-btn.active-plus2 {
-  background: #ffedd5;
-  border-color: #fed7aa;
-  color: #ea580c;
-}
-.dark .history-pen-btn.active-plus2 {
-  background: #7c2d12;
-  border-color: #fdba74;
-  color: #ffedd5;
-}
-.history-pen-btn.active-dnf {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-.dark .history-pen-btn.active-dnf {
-  background: #7f1d1d;
-  border-color: #fca5a5;
-  color: #fee2e2;
-}
-
-/* Compact penalty buttons used inside History list */
-.history-pen-btn {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.70rem;
-  font-weight: 800;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #64748b;
-  transition: all 0.15s;
-}
-.dark .history-pen-btn {
-  border-color: #334155;
-  background: #1e293b;
-  color: #94a3b8;
-}
-.history-pen-btn.active-plus2 {
-  background: #ffedd5;
-  border-color: #fed7aa;
-  color: #ea580c;
-}
-.dark .history-pen-btn.active-plus2 {
-  background: #7c2d12;
-  border-color: #fdba74;
-  color: #ffedd5;
-}
-.history-pen-btn.active-dnf {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-.dark .history-pen-btn.active-dnf {
-  background: #7f1d1d;
-  border-color: #fca5a5;
-  color: #fee2e2;
-}
-
-/* Compact penalty buttons used inside History list */
-.history-pen-btn {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.70rem;
-  font-weight: 800;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #64748b;
-  transition: all 0.15s;
-}
-.dark .history-pen-btn {
-  border-color: #334155;
-  background: #1e293b;
-  color: #94a3b8;
-}
-.history-pen-btn.active-plus2 {
-  background: #ffedd5;
-  border-color: #fed7aa;
-  color: #ea580c;
-}
-.dark .history-pen-btn.active-plus2 {
-  background: #7c2d12;
-  border-color: #fdba74;
-  color: #ffedd5;
-}
-.history-pen-btn.active-dnf {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-.dark .history-pen-btn.active-dnf {
-  background: #7f1d1d;
-  border-color: #fca5a5;
-  color: #fee2e2;
-}
-.history-pen-btn:active { transform: scale(0.96); }
-
-/* Compact penalty buttons used inside History list */
-.history-pen-btn {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.70rem;
-  font-weight: 800;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #64748b;
-  transition: all 0.15s;
-}
-.dark .history-pen-btn {
-  border-color: #334155;
-  background: #1e293b;
-  color: #94a3b8;
-}
-.history-pen-btn.active-plus2 {
-  background: #ffedd5;
-  border-color: #fed7aa;
-  color: #ea580c;
-}
-.dark .history-pen-btn.active-plus2 {
-  background: #7c2d12;
-  border-color: #fdba74;
-  color: #ffedd5;
-}
-.history-pen-btn.active-dnf {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-.dark .history-pen-btn.active-dnf {
-  background: #7f1d1d;
-  border-color: #fca5a5;
-  color: #fee2e2;
-}
-
 
 .bt-pulse { animation: pulse 2s infinite; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
@@ -272,7 +98,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cur
   - Allow vertical scroll gestures to pass through the timer area (pan-y)
   - Prevent double-tap zoom / highlight without killing scroll
 */
-#timerInteractiveArea { touch-action: none; -webkit-tap-highlight-color: transparent; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+#timerInteractiveArea { touch-action: pan-y; -webkit-tap-highlight-color: transparent; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 
 /* While timing, we intentionally prevent page scroll to avoid accidental movement */
 body.no-scroll { overflow: hidden; }
@@ -392,8 +218,8 @@ body.no-scroll { overflow: hidden; }
 .scramble-box { padding: var(--scramblePad) !important; }
 
 .timer-display {
-  /* Keep the timer big, but never allow it to overflow vertically */
-  font-size: clamp(4rem, 16vmin, 13rem);
+  /* Bigger by default, but can scale down on short screens */
+  font-size: clamp(7.2rem, 20vw, 16rem);
 }
 
 /* Make the diagram responsive so the top block can actually shrink on short screens */
@@ -409,7 +235,7 @@ body.no-scroll { overflow: hidden; }
     --scrambleBottomH: 150px;
     --scramblePad: 1.1rem;
   }
-  .timer-display { font-size: clamp(3.8rem, 15vmin, 11.5rem); }
+  .timer-display { font-size: clamp(6.1rem, 18vw, 14rem); }
 }
 
 @media (max-height: 640px) {
@@ -421,7 +247,7 @@ body.no-scroll { overflow: hidden; }
   /* Hide diagram area earlier on very short screens */
   #scrambleDiagramSkeleton { display: none !important; }
   #scrambleDiagram { display: none !important; }
-  .timer-display { font-size: clamp(3.4rem, 14vmin, 10.5rem); }
+  .timer-display { font-size: clamp(5.6rem, 18vw, 13.2rem); }
 }
 
 @media (max-height: 560px) {
@@ -430,7 +256,7 @@ body.no-scroll { overflow: hidden; }
     --scrambleBottomH: 90px;
     --scramblePad: 0.65rem;
   }
-  .timer-display { font-size: clamp(3.0rem, 13vmin, 9.5rem); }
+  .timer-display { font-size: clamp(5.1rem, 18vw, 12.2rem); }
 }
 
 /* Narrow windows: compress vertical spacing so the whole UI fits without scrolling */
@@ -454,39 +280,45 @@ body.no-scroll { overflow: hidden; }
   }
 }
 
-/* Compact penalty buttons used inside History list */
-.history-pen-btn {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.70rem;
-  font-weight: 800;
+/* === Final UX fixes (2026-01-20) === */
+/* Keep timer from growing vertically on wide screens (prevents clipping Ao5/Ao12) */
+.timer-display{
+  font-size: clamp(3.2rem, 14vmin, 11rem) !important;
+}
+
+/* Ensure timer section can shrink within flex layout */
+#timerSection, #timerContainer, #timerInteractiveArea{
+  min-height: 0;
+}
+
+/* History penalty buttons */
+.hist-pen-btn{
+  padding: 0.35rem 0.55rem;
   border-radius: 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 800;
   border: 1px solid #e2e8f0;
   background: white;
-  color: #64748b;
-  transition: all 0.15s;
+  color: #94a3b8;
+  transition: transform 0.08s, background-color 0.15s, border-color 0.15s, color 0.15s;
 }
-.dark .history-pen-btn {
+.dark .hist-pen-btn{
   border-color: #334155;
   background: #1e293b;
-  color: #94a3b8;
+  color: #64748b;
 }
-.history-pen-btn.active-plus2 {
-  background: #ffedd5;
-  border-color: #fed7aa;
-  color: #ea580c;
+.hist-pen-btn:active{ transform: scale(0.95); }
+.hist-pen-btn.active-plus2{ background: #ffedd5; border-color: #fed7aa; color: #ea580c; }
+.dark .hist-pen-btn.active-plus2{ background: #7c2d12; border-color: #fdba74; color: #ffedd5; }
+.hist-pen-btn.active-dnf{ background: #fee2e2; border-color: #fecaca; color: #dc2626; }
+.dark .hist-pen-btn.active-dnf{ background: #7f1d1d; border-color: #fca5a5; color: #fee2e2; }
+
+@media (max-height: 720px){
+  #avgRow{ margin-top: 1rem !important; }
+  .avg-badge{ padding: 0.75rem 1.0rem; min-width: 120px; }
 }
-.dark .history-pen-btn.active-plus2 {
-  background: #7c2d12;
-  border-color: #fdba74;
-  color: #ffedd5;
-}
-.history-pen-btn.active-dnf {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-.dark .history-pen-btn.active-dnf {
-  background: #7f1d1d;
-  border-color: #fca5a5;
-  color: #fee2e2;
+@media (max-height: 620px){
+  #avgRow{ margin-top: 0.7rem !important; gap: 0.75rem; }
+  .avg-badge{ padding: 0.6rem 0.85rem; min-width: 110px; }
+  .avg-badge span:nth-child(2){ font-size: 1.25rem; }
 }
