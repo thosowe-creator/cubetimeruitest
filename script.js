@@ -1,5 +1,5 @@
 let solves = [];
-let sessions = {};
+let sessions = {}; 
 let currentEvent = '333';
 let isRunning = false;
 let isReady = false;
@@ -768,11 +768,8 @@ function handleGanBTData(event) {
                 if (isInspectionMode && inspectionState === 'inspecting') {
                     stopInspection();
                 }
-	                startTime = Date.now();
-	                isRunning = true;
-	                // Keep behavior consistent with manual timing: lock scroll + hide UI while timing
-	                document.body.classList.add('no-scroll', 'timing-mode');
-	                setControlsLocked(true);
+                startTime = Date.now();
+                isRunning = true;
                 if(timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
                     timerEl.innerText = formatTime(Date.now() - startTime);
@@ -835,8 +832,7 @@ function startTimer() {
     startPerf = performance.now();
     isRunning = true;
     // Prevent accidental page scroll while timing on mobile
-    // + Hide everything except the timer number while timing
-    document.body.classList.add('no-scroll', 'timing-mode');
+    document.body.classList.add('no-scroll');
     setControlsLocked(true);
     if (timerRafId) cancelAnimationFrame(timerRafId);
     const tick = () => {
@@ -860,8 +856,8 @@ function stopTimer(forcedTime = null) {
     const elapsed = forcedTime !== null ? forcedTime : (performance.now() - startPerf);
     lastStopTimestamp = Date.now();
 
-    // Stop timing: restore UI + scroll
-    document.body.classList.remove('no-scroll', 'timing-mode');
+    // Stop timing: restore scroll
+    document.body.classList.remove('no-scroll');
 
     // Multi-Blind: WCA식 입력 모달에서 결과를 완성해야 저장
     if (currentEvent === '333mbf') {
