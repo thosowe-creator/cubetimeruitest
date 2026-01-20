@@ -2,7 +2,7 @@ let solves = [];
 let sessions = {}; 
 let currentEvent = '333';
 let isRunning = false;
-let isReady = false
+let isReady = false;
 let startTime;
 let timerInterval;
 let timerRafId = null;
