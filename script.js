@@ -439,6 +439,35 @@ const scrambleLoadingRow = document.getElementById('scrambleLoadingRow');
 const scrambleLoadingText = document.getElementById('scrambleLoadingText');
 const scrambleDiagramSkeleton = document.getElementById('scrambleDiagramSkeleton');
 const scrambleRetryBtn = document.getElementById('scrambleRetryBtn');
+
+// Scramble box bottom area sizing (Timer section)
+let _scrambleBottomBase = null;
+function refreshScrambleBottomBase() {
+    // Remove inline override so we can read the CSS default for this viewport
+    document.documentElement.style.removeProperty('--scrambleBottomH');
+    const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scrambleBottomH'));
+    _scrambleBottomBase = Number.isFinite(v) ? v : 120;
+}
+function updateScrambleBoxBottomArea() {
+    // Only affects the timer section scramble box (not the history tool area)
+    if (_scrambleBottomBase == null) refreshScrambleBottomBase();
+
+    // MBF: we show the input UI instead of scramble text/diagram placeholders
+    if (currentEvent === '333mbf') {
+        document.documentElement.style.setProperty('--scrambleBottomH', '0px');
+        return;
+    }
+
+    const isLoading = !!(scrambleLoadingRow && !scrambleLoadingRow.classList.contains('hidden'));
+    const isRetry = !!(scrambleRetryBtn && !scrambleRetryBtn.classList.contains('hidden'));
+
+    let target = 0;
+    if (isLoading) target = _scrambleBottomBase;
+    else if (isRetry) target = Math.min(72, _scrambleBottomBase);
+
+    document.documentElement.style.setProperty('--scrambleBottomH', `${Math.max(0, Math.round(target))}px`);
+}
+
 // UI Sections for Mobile Tab Switching
 const timerSection = document.getElementById('timerSection');
 const historySection = document.getElementById('historySection');
@@ -474,6 +503,12 @@ let cubeState = {};
 const COLORS = { U: '#FFFFFF', D: '#FFD500', L: '#FF8C00', R: '#DC2626', F: '#16A34A', B: '#2563EB' };
 // --- Mobile Tab Logic ---
 window.switchMobileTab = (tab) => {
+    // If Settings is open, close it when switching major views
+    try {
+        const sOv = document.getElementById('settingsOverlay');
+        if (sOv && sOv.classList.contains('active')) closeSettings();
+    } catch (_) {}
+
     if (tab === 'timer') {
         // Show Timer, Hide History
         timerSection.classList.remove('hidden');
@@ -500,6 +535,8 @@ window.switchMobileTab = (tab) => {
 };
 // Ensure desktop layout on resize
 window.addEventListener('resize', () => {
+    try { refreshScrambleBottomBase(); updateScrambleBoxBottomArea(); } catch (_) {}
+
     if (window.innerWidth >= 768) {
         // Desktop: Show both
         timerSection.classList.remove('hidden');
@@ -1314,6 +1351,9 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
     }
+
+    // Keep scramble box height tight (timer section)
+    try { updateScrambleBoxBottomArea(); } catch (_) {}
 }
 
 window.retryScramble = () => {
@@ -1364,7 +1404,9 @@ async function generateScramble() {
             if (reqId !== scrambleReqId) return; // stale
             currentScramble = alg.toString();
             if (scrambleEl) scrambleEl.innerText = currentScramble;
+            try { updateScrambleBoxBottomArea(); } catch (_) {}
             setScrambleLoadingState(false);
+            try { updateScrambleBoxBottomArea(); } catch (_) {}
             updateScrambleDiagram();
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
@@ -1498,7 +1540,9 @@ async function generateScramble() {
     }
     if (reqId !== scrambleReqId) return; // stale
     if (scrambleEl) scrambleEl.innerText = currentScramble;
+    try { updateScrambleBoxBottomArea(); } catch (_) {}
     setScrambleLoadingState(false);
+    try { updateScrambleBoxBottomArea(); } catch (_) {}
     updateScrambleDiagram();
     resetPenalty();
     if (activeTool === 'graph') renderHistoryGraph();
@@ -1777,6 +1821,11 @@ historyList.addEventListener('scroll', () => {
 });
 // Extended Stats Modal Logic
 window.showExtendedStats = () => {
+    try {
+        const sOv = document.getElementById('settingsOverlay');
+        if (sOv && sOv.classList.contains('active')) closeSettings();
+    } catch (_) {}
+
     const sid = getCurrentSessionId();
     const filtered = solves.filter(s => s.event === currentEvent && s.sessionId === sid);
     
@@ -2117,7 +2166,7 @@ window.showSolveDetails = (id) => {
     if (overlay) overlay.classList.add('active');
 };
 window.closeModal = () => document.getElementById('modalOverlay').classList.remove('active');
-window.useThisScramble = () => { let s=solves.find(x=>x.id===selectedSolveId); if(s){currentScramble=s.scramble; scrambleEl.innerText=currentScramble; closeModal();} };
+window.useThisScramble = () => { let s=solves.find(x=>x.id===selectedSolveId); if(s){currentScramble=s.scramble; scrambleEl.innerText=currentScramble; try { updateScrambleBoxBottomArea(); } catch (_) {} closeModal();} };
 precisionToggle.onchange = e => { precision = e.target.checked?3:2; updateUI(); timerEl.innerText=(0).toFixed(precision); saveData(); };
 avgModeToggle.onchange = e => { isAo5Mode = e.target.checked; updateUI(); saveData(); };
 manualEntryToggle.onchange = e => { isManualMode = e.target.checked; timerEl.classList.toggle('hidden', isManualMode); manualInput.classList.toggle('hidden', !isManualMode); statusHint.innerText = isManualMode ? (currentLang === 'ko' ? '시간 입력 후 Enter' : 'Type time & Enter') : t('holdToReady'); };
@@ -2144,5 +2193,6 @@ document.getElementById('clearHistoryBtn').onclick = () => {
 loadData();
 applyLanguageToUI();
 changeEvent(currentEvent);
+try { refreshScrambleBottomBase(); updateScrambleBoxBottomArea(); } catch (_) {}
 // Check for updates on load
 checkUpdateLog();
