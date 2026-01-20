@@ -11,7 +11,8 @@ body {
   font-family: inherit;
   font-variant-numeric: tabular-nums;
   /* Base size (viewport-budget block near the end may override) */
-  font-size: clamp(5.6rem, 18vw, 13rem);
+  /* Use vmin so wide desktop screens don't blow up the timer height */
+  font-size: clamp(4rem, 18vmin, 12rem);
   font-weight: 400; /* thinner */
   line-height: 1;
   transition: color 0.1s;
@@ -31,20 +32,16 @@ body {
   width: 100%;
 }
 
-/* Keep the app in the viewport and let only internal panels scroll */
+/* Layout: let the header take its height, and the main content fill the rest.
+   Avoid calc(100dvh - ...) here because it clips content across devices/browsers. */
 .main-container {
-  height: calc(100dvh - 3.5rem - 4rem - env(safe-area-inset-bottom));
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
-}
-@media (min-width: 768px) {
-  .main-container {
-    height: calc(100dvh - 4rem);
-  }
 }
 .modal-overlay { background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
 .modal-overlay.active { display: flex; }
-.history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
-@media (min-width: 768px) { .history-panel { height: calc(100dvh - 120px); } }
+.history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); min-height: 0; }
 
 /* Smaller-height screens: compress paddings and reserved blocks so everything fits without page scroll */
 @media (max-height: 700px) {
@@ -52,7 +49,7 @@ body {
   .scramble-diagram { width: 240px; height: 150px; }
   .scramble-skeleton { width: 240px; height: 150px; }
   #toolContainer { min-height: 150px !important; }
-  .timer-display { font-size: clamp(4.3rem, 16vw, 10rem); }
+  .timer-display { font-size: clamp(4.3rem, 16vmin, 10rem); }
 }
 
 @media (max-height: 620px) {
@@ -60,7 +57,7 @@ body {
   .scramble-diagram { width: 220px; height: 120px; }
   .scramble-skeleton { width: 220px; height: 120px; }
   #toolContainer { min-height: 120px !important; }
-  .timer-display { font-size: clamp(3.8rem, 15vw, 9.2rem); }
+  .timer-display { font-size: clamp(3.8rem, 15vmin, 9.2rem); }
 }
 .custom-scroll::-webkit-scrollbar { width: 5px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -183,21 +180,21 @@ body.no-scroll { overflow: hidden; }
 @media (max-height: 760px) {
   .scramble-bottom-area { height: 150px; }
   #toolContainer { min-height: 150px !important; }
-  .timer-display { font-size: clamp(4.2rem, 16vw, 10.5rem); }
+  .timer-display { font-size: clamp(4.2rem, 16vmin, 10.5rem); }
 }
 
 @media (max-height: 680px) {
   .scramble-bottom-area { height: 120px; }
   #toolContainer { min-height: 120px !important; }
   .scramble-diagram, .scramble-skeleton { width: 220px; height: 160px; }
-  .timer-display { font-size: clamp(3.8rem, 15vw, 9.5rem); }
+  .timer-display { font-size: clamp(3.8rem, 15vmin, 9.5rem); }
 }
 
 @media (max-height: 610px) {
   .scramble-bottom-area { height: 90px; }
   #toolContainer { min-height: 90px !important; }
   .scramble-diagram, .scramble-skeleton { width: 200px; height: 140px; }
-  .timer-display { font-size: clamp(3.4rem, 14vw, 8.5rem); }
+  .timer-display { font-size: clamp(3.4rem, 14vmin, 8.5rem); }
 }
 
 /* === Responsive shrink hotfix (viewport-height driven) === */
@@ -219,7 +216,7 @@ body.no-scroll { overflow: hidden; }
 
 .timer-display {
   /* Bigger by default, but can scale down on short screens */
-  font-size: clamp(7.2rem, 20vw, 16rem);
+  font-size: clamp(4rem, 18vmin, 12rem);
 }
 
 /* Make the diagram responsive so the top block can actually shrink on short screens */
@@ -235,7 +232,7 @@ body.no-scroll { overflow: hidden; }
     --scrambleBottomH: 150px;
     --scramblePad: 1.1rem;
   }
-  .timer-display { font-size: clamp(6.1rem, 18vw, 14rem); }
+  .timer-display { font-size: clamp(3.6rem, 16vmin, 10.5rem); }
 }
 
 @media (max-height: 640px) {
@@ -247,7 +244,7 @@ body.no-scroll { overflow: hidden; }
   /* Hide diagram area earlier on very short screens */
   #scrambleDiagramSkeleton { display: none !important; }
   #scrambleDiagram { display: none !important; }
-  .timer-display { font-size: clamp(5.6rem, 18vw, 13.2rem); }
+  .timer-display { font-size: clamp(3.3rem, 15vmin, 9.5rem); }
 }
 
 @media (max-height: 560px) {
@@ -256,7 +253,7 @@ body.no-scroll { overflow: hidden; }
     --scrambleBottomH: 90px;
     --scramblePad: 0.65rem;
   }
-  .timer-display { font-size: clamp(5.1rem, 18vw, 12.2rem); }
+  .timer-display { font-size: clamp(3.0rem, 14vmin, 8.5rem); }
 }
 
 /* Narrow windows: compress vertical spacing so the whole UI fits without scrolling */
@@ -278,47 +275,4 @@ body.no-scroll { overflow: hidden; }
     --scrambleBottomH: 90px;
     --scramblePad: 0.65rem;
   }
-}
-
-/* === Final UX fixes (2026-01-20) === */
-/* Keep timer from growing vertically on wide screens (prevents clipping Ao5/Ao12) */
-.timer-display{
-  font-size: clamp(3.2rem, 14vmin, 11rem) !important;
-}
-
-/* Ensure timer section can shrink within flex layout */
-#timerSection, #timerContainer, #timerInteractiveArea{
-  min-height: 0;
-}
-
-/* History penalty buttons */
-.hist-pen-btn{
-  padding: 0.35rem 0.55rem;
-  border-radius: 0.65rem;
-  font-size: 0.7rem;
-  font-weight: 800;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #94a3b8;
-  transition: transform 0.08s, background-color 0.15s, border-color 0.15s, color 0.15s;
-}
-.dark .hist-pen-btn{
-  border-color: #334155;
-  background: #1e293b;
-  color: #64748b;
-}
-.hist-pen-btn:active{ transform: scale(0.95); }
-.hist-pen-btn.active-plus2{ background: #ffedd5; border-color: #fed7aa; color: #ea580c; }
-.dark .hist-pen-btn.active-plus2{ background: #7c2d12; border-color: #fdba74; color: #ffedd5; }
-.hist-pen-btn.active-dnf{ background: #fee2e2; border-color: #fecaca; color: #dc2626; }
-.dark .hist-pen-btn.active-dnf{ background: #7f1d1d; border-color: #fca5a5; color: #fee2e2; }
-
-@media (max-height: 720px){
-  #avgRow{ margin-top: 1rem !important; }
-  .avg-badge{ padding: 0.75rem 1.0rem; min-width: 120px; }
-}
-@media (max-height: 620px){
-  #avgRow{ margin-top: 0.7rem !important; gap: 0.75rem; }
-  .avg-badge{ padding: 0.6rem 0.85rem; min-width: 110px; }
-  .avg-badge span:nth-child(2){ font-size: 1.25rem; }
 }
