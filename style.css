@@ -14,7 +14,7 @@ body {
   font-variant-numeric: tabular-nums;
   /* Base size (viewport-budget block near the end may override) */
   /* Use vmin so the timer never exceeds available height on wide screens */
-  font-size: clamp(4rem, 16vmin, 13rem);
+  font-size: clamp(4.4rem, 17.5vmin, 14rem);
   font-weight: 400; /* thinner */
   line-height: 1;
   transition: color 0.1s;
@@ -403,7 +403,7 @@ body.no-scroll { overflow: hidden; }
 
 .timer-display {
   /* Keep the timer big, but never allow it to overflow vertically */
-  font-size: clamp(4rem, 16vmin, 13rem);
+  font-size: clamp(4.4rem, 17.5vmin, 14rem);
 }
 
 /* Make the diagram responsive so the top block can actually shrink on short screens */
