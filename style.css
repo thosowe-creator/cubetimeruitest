@@ -71,23 +71,13 @@ body {
 
 .history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
 
-/*
-  Timer vertical centering:
-  The timer block is centered in the remaining space under the top controls,
-  which can feel "too low" on small screens.
-  Apply a small upward shift so the timer + averages sit closer to the visual center.
-*/
-.timer-center-shift {
-  transform: translateY(clamp(-3.5rem, -6vh, -1.5rem));
-}
-
 /* Smaller-height screens: compress paddings and reserved blocks so everything fits without page scroll */
 @media (max-height: 700px) {
   .scramble-bottom-area { height: 150px; }
   .scramble-diagram { width: 240px; height: 150px; }
   .scramble-skeleton { width: 240px; height: 150px; }
   #toolContainer { min-height: 150px !important; }
-  .timer-display { font-size: clamp(4.3rem, 16vw, 10rem); }
+  .timer-display { font-size: clamp(4.7rem, 17vw, 11rem); }
 }
 
 @media (max-height: 620px) {
@@ -95,7 +85,7 @@ body {
   .scramble-diagram { width: 220px; height: 120px; }
   .scramble-skeleton { width: 220px; height: 120px; }
   #toolContainer { min-height: 120px !important; }
-  .timer-display { font-size: clamp(3.8rem, 15vw, 9.2rem); }
+  .timer-display { font-size: clamp(4.2rem, 16vw, 10.2rem); }
 }
 .custom-scroll::-webkit-scrollbar { width: 5px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -499,4 +489,9 @@ body.no-scroll { overflow: hidden; }
   background: #7f1d1d;
   border-color: #fca5a5;
   color: #fee2e2;
+}
+
+
+.timer-center-shift {
+  transform: translateY(-3vh);
 }
