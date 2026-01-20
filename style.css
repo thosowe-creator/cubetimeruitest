@@ -67,6 +67,11 @@ body {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Mobile: keep scroll contained and comfortable like History */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  /* Reserve space so the last item isn't hidden behind the sticky footer */
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
 }
 
 .history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
@@ -272,7 +277,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cur
   - Allow vertical scroll gestures to pass through the timer area (pan-y)
   - Prevent double-tap zoom / highlight without killing scroll
 */
-#timerInteractiveArea { touch-action: none; -webkit-tap-highlight-color: transparent; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+#timerInteractiveArea { touch-action: pan-y; -webkit-tap-highlight-color: transparent; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 
 /* While timing, we intentionally prevent page scroll to avoid accidental movement */
 body.no-scroll { overflow: hidden; }
@@ -493,5 +498,6 @@ body.no-scroll { overflow: hidden; }
 
 
 .timer-center-shift {
-  transform: translateY(-3vh);
+  /* Keep the timer visually centered (no vertical bias) */
+  transform: translateY(0);
 }
