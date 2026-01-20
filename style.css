@@ -14,7 +14,8 @@ body {
   font-variant-numeric: tabular-nums;
   /* Base size (viewport-budget block near the end may override) */
   /* Use vmin so the timer never exceeds available height on wide screens */
-  font-size: clamp(4.4rem, 17.5vmin, 14rem);
+  /* Bigger + more centered feel (vmin scales by the smaller side, safer on mobile) */
+  font-size: clamp(4.8rem, 18vmin, 14.5rem);
   font-weight: 400; /* thinner */
   line-height: 1;
   transition: color 0.1s;
@@ -22,6 +23,33 @@ body {
 
 /* Hide the Ready/Hint pill entirely (keep timing logic intact) */
 #statusHint { display: none !important; }
+
+/* User request: average badges not needed */
+.avg-badge { display: none !important; }
+
+/* User request: while timing, hide all UI except the timer number */
+body.timing-mode header,
+body.timing-mode #scrambleBox,
+body.timing-mode #toolContainer,
+body.timing-mode #historySection,
+body.timing-mode nav {
+  display: none !important;
+}
+
+/* Make the timer occupy the full viewport while timing */
+body.timing-mode #timerContainer {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Slightly nudge the timer up in normal mode (avg badges removed, so keep it subtle) */
+#timerDisplayContainer { transform: translateY(-0.6rem); }
 
 .manual-input {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -77,7 +105,7 @@ body {
   .scramble-diagram { width: 240px; height: 150px; }
   .scramble-skeleton { width: 240px; height: 150px; }
   #toolContainer { min-height: 150px !important; }
-  .timer-display { font-size: clamp(4.7rem, 17vw, 11rem); }
+  .timer-display { font-size: clamp(4.6rem, 17vw, 10.8rem); }
 }
 
 @media (max-height: 620px) {
@@ -85,7 +113,7 @@ body {
   .scramble-diagram { width: 220px; height: 120px; }
   .scramble-skeleton { width: 220px; height: 120px; }
   #toolContainer { min-height: 120px !important; }
-  .timer-display { font-size: clamp(4.2rem, 16vw, 10.2rem); }
+  .timer-display { font-size: clamp(4.0rem, 16vw, 9.8rem); }
 }
 .custom-scroll::-webkit-scrollbar { width: 5px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -393,7 +421,7 @@ body.no-scroll { overflow: hidden; }
 
 .timer-display {
   /* Keep the timer big, but never allow it to overflow vertically */
-  font-size: clamp(4.4rem, 17.5vmin, 14rem);
+  font-size: clamp(4.8rem, 18vmin, 14.5rem);
 }
 
 /* Make the diagram responsive so the top block can actually shrink on short screens */
@@ -409,7 +437,7 @@ body.no-scroll { overflow: hidden; }
     --scrambleBottomH: 150px;
     --scramblePad: 1.1rem;
   }
-  .timer-display { font-size: clamp(3.8rem, 15vmin, 11.5rem); }
+  .timer-display { font-size: clamp(4.2rem, 16.5vmin, 12.2rem); }
 }
 
 @media (max-height: 640px) {
@@ -421,7 +449,11 @@ body.no-scroll { overflow: hidden; }
   /* Hide diagram area earlier on very short screens */
   #scrambleDiagramSkeleton { display: none !important; }
   #scrambleDiagram { display: none !important; }
-  .timer-display { font-size: clamp(3.4rem, 14vmin, 10.5rem); }
+  .timer-display { font-size: clamp(3.8rem, 15.2vmin, 11rem); }
+}
+
+@media (max-height: 560px) {
+  .timer-display { font-size: clamp(3.3rem, 14vmin, 10rem); }
 }
 
 @media (max-height: 560px) {
@@ -489,9 +521,4 @@ body.no-scroll { overflow: hidden; }
   background: #7f1d1d;
   border-color: #fca5a5;
   color: #fee2e2;
-}
-
-
-.timer-center-shift {
-  transform: translateY(-3vh);
 }
