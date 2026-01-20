@@ -1,0 +1,281 @@
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-weight: 400;
+  touch-action: manipulation;
+  overflow: hidden; /* prevent page scroll (spacebar / layout growth) */
+}
+
+.timer-display {
+  /* Match the averages font for consistency */
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  /* Base size (viewport-budget block near the end may override) */
+  font-size: clamp(5.6rem, 18vw, 13rem);
+  font-weight: 400; /* thinner */
+  line-height: 1;
+  transition: color 0.1s;
+}
+
+/* Hide the Ready/Hint pill entirely (keep timing logic intact) */
+#statusHint { display: none !important; }
+
+.manual-input {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: clamp(2.8rem, 12vw, 6.2rem);
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  outline: none;
+  text-align: center;
+  width: 100%;
+}
+
+/* Keep the app in the viewport and let only internal panels scroll */
+.main-container {
+  height: calc(100dvh - 3.5rem - 4rem - env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+@media (min-width: 768px) {
+  .main-container {
+    height: calc(100dvh - 4rem);
+  }
+}
+.modal-overlay { background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
+.modal-overlay.active { display: flex; }
+.history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
+@media (min-width: 768px) { .history-panel { height: calc(100dvh - 120px); } }
+
+/* Smaller-height screens: compress paddings and reserved blocks so everything fits without page scroll */
+@media (max-height: 700px) {
+  .scramble-bottom-area { height: 150px; }
+  .scramble-diagram { width: 240px; height: 150px; }
+  .scramble-skeleton { width: 240px; height: 150px; }
+  #toolContainer { min-height: 150px !important; }
+  .timer-display { font-size: clamp(4.3rem, 16vw, 10rem); }
+}
+
+@media (max-height: 620px) {
+  .scramble-bottom-area { height: 120px; }
+  .scramble-diagram { width: 220px; height: 120px; }
+  .scramble-skeleton { width: 220px; height: 120px; }
+  #toolContainer { min-height: 120px !important; }
+  .timer-display { font-size: clamp(3.8rem, 15vw, 9.2rem); }
+}
+.custom-scroll::-webkit-scrollbar { width: 5px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+.dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
+
+/* Switch Toggle */
+.switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .4s; border-radius: 34px; }
+.dark .slider { background-color: #475569; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #3b82f6; }
+input:checked + .slider:before { transform: translateX(20px); }
+
+/* Range Slider */
+input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e2e8f0; border-radius: 2px; }
+.dark input[type=range]::-webkit-slider-runnable-track { background: #475569; }
+
+.penalty-btn { flex: 1; padding: 1rem; font-size: 0.875rem; font-weight: 700; border-radius: 0.75rem; transition: all 0.2s; border: 1px solid #e2e8f0; }
+.dark .penalty-btn { border-color: #334155; background-color: #1e293b; color: #94a3b8; }
+.penalty-btn.active-plus2 { background-color: #ffedd5; border-color: #fed7aa; color: #ea580c; }
+.dark .penalty-btn.active-plus2 { background-color: #7c2d12; border-color: #fdba74; color: #ffedd5; }
+.penalty-btn.active-dnf { background-color: #fee2e2; border-color: #fecaca; color: #dc2626; }
+.dark .penalty-btn.active-dnf { background-color: #7f1d1d; border-color: #fca5a5; color: #fee2e2; }
+.penalty-btn.inactive { background-color: white; color: #94a3b8; }
+.dark .penalty-btn.inactive { background-color: #1e293b; color: #64748b; }
+
+.bt-pulse { animation: pulse 2s infinite; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+/*
+  Mobile usability:
+  - Allow vertical scroll gestures to pass through the timer area (pan-y)
+  - Prevent double-tap zoom / highlight without killing scroll
+*/
+#timerInteractiveArea { touch-action: pan-y; -webkit-tap-highlight-color: transparent; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+
+/* While timing, we intentionally prevent page scroll to avoid accidental movement */
+body.no-scroll { overflow: hidden; }
+.avg-badge { padding: 1rem 1.5rem; border-radius: 1rem; background: white; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); min-width: 140px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.1s; }
+.dark .avg-badge { background-color: #1e293b; border-color: #334155; }
+.avg-badge:active { transform: scale(0.95); }
+.tools-dropdown { position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: none; flex-direction: column; overflow: hidden; z-index: 60; width: 160px; }
+.dark .tools-dropdown { background-color: #1e293b; border-color: #334155; }
+.tools-dropdown.show { display: flex; }
+.tool-option { padding: 10px 16px; font-size: 12px; font-weight: 700; color: #64748b; text-align: left; transition: all 0.2s; }
+.dark .tool-option { color: #94a3b8; }
+.tool-option:hover { background: #f1f5f9; color: #3b82f6; }
+.dark .tool-option:hover { background: #334155; color: #60a5fa; }
+.tool-option.active { color: #3b82f6; background: #eff6ff; }
+.dark .tool-option.active { color: #60a5fa; background: #172554; }
+.category-btn.active { background-color: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2); }
+.event-tab.active { background-color: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2); }
+
+/* Status Colors */
+.text-ready { color: #10b981 !important; transform: scale(1.02); } 
+.text-hold { color: #ef4444 !important; }
+.text-running { color: #2563eb !important; }
+.dark .text-running { color: #60a5fa !important; } /* Lighter blue for dark mode */
+
+
+/* cubing.js scramble diagram */
+.scramble-diagram{
+  width:260px;
+  height:190px;
+  display:block;
+  overflow:hidden;
+  border-radius:16px;
+}
+
+/* Scramble Loading UI */
+.spinner{
+  width:14px;
+  height:14px;
+  border-radius:9999px;
+  border:2px solid rgba(148,163,184,0.35);
+  border-top-color: rgba(59,130,246,0.9);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin{ to { transform: rotate(360deg); } }
+
+.scramble-skeleton{
+  width: 260px;
+  height: 190px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(226,232,240,0.9), rgba(241,245,249,0.9), rgba(226,232,240,0.9));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+.dark .scramble-skeleton{
+  background: linear-gradient(90deg, rgba(51,65,85,0.8), rgba(30,41,59,0.8), rgba(51,65,85,0.8));
+  background-size: 200% 100%;
+}
+@keyframes skeleton{ 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+@media (min-width: 768px){
+  .scramble-diagram{
+    width:320px;
+    height:220px;
+  }
+  .scramble-skeleton{
+    width:320px;
+    height:220px;
+  }
+}
+
+/* Reserve space below scramble text to prevent timer shift */
+.scramble-bottom-area{
+  height:190px;
+}
+@media (min-width: 768px){
+  .scramble-bottom-area{
+    height:220px;
+  }
+}
+
+/* Height-based responsive compression (keeps UI in view without page scroll) */
+@media (max-height: 760px) {
+  .scramble-bottom-area { height: 150px; }
+  #toolContainer { min-height: 150px !important; }
+  .timer-display { font-size: clamp(4.2rem, 16vw, 10.5rem); }
+}
+
+@media (max-height: 680px) {
+  .scramble-bottom-area { height: 120px; }
+  #toolContainer { min-height: 120px !important; }
+  .scramble-diagram, .scramble-skeleton { width: 220px; height: 160px; }
+  .timer-display { font-size: clamp(3.8rem, 15vw, 9.5rem); }
+}
+
+@media (max-height: 610px) {
+  .scramble-bottom-area { height: 90px; }
+  #toolContainer { min-height: 90px !important; }
+  .scramble-diagram, .scramble-skeleton { width: 200px; height: 140px; }
+  .timer-display { font-size: clamp(3.4rem, 14vw, 8.5rem); }
+}
+
+/* === Responsive shrink hotfix (viewport-height driven) === */
+/* Allow flex children to actually shrink instead of forcing overflow */
+#timerSection, #scrambleBox, #toolContainer, .scramble-bottom-area {
+  min-height: 0;
+}
+
+:root {
+  --toolMinH: 190px;
+  --scrambleBottomH: 190px;
+  --scramblePad: 1.5rem;
+}
+
+/* Apply budgets */
+#toolContainer { min-height: var(--toolMinH) !important; }
+.scramble-bottom-area { height: var(--scrambleBottomH) !important; }
+.scramble-box { padding: var(--scramblePad) !important; }
+
+.timer-display {
+  /* Bigger by default, but can scale down on short screens */
+  font-size: clamp(7.2rem, 20vw, 16rem);
+}
+
+/* Make the diagram responsive so the top block can actually shrink on short screens */
+.scramble-diagram,
+.scramble-skeleton{
+  width: clamp(200px, 55vw, 320px);
+  height: clamp(120px, 24vh, 220px);
+}
+
+@media (max-height: 720px) {
+  :root {
+    --toolMinH: 150px;
+    --scrambleBottomH: 150px;
+    --scramblePad: 1.1rem;
+  }
+  .timer-display { font-size: clamp(6.1rem, 18vw, 14rem); }
+}
+
+@media (max-height: 640px) {
+  :root {
+    --toolMinH: 120px;
+    --scrambleBottomH: 120px;
+    --scramblePad: 0.85rem;
+  }
+  /* Hide diagram area earlier on very short screens */
+  #scrambleDiagramSkeleton { display: none !important; }
+  #scrambleDiagram { display: none !important; }
+  .timer-display { font-size: clamp(5.6rem, 18vw, 13.2rem); }
+}
+
+@media (max-height: 560px) {
+  :root {
+    --toolMinH: 90px;
+    --scrambleBottomH: 90px;
+    --scramblePad: 0.65rem;
+  }
+  .timer-display { font-size: clamp(5.1rem, 18vw, 12.2rem); }
+}
+
+/* Narrow windows: compress vertical spacing so the whole UI fits without scrolling */
+@media (max-width: 1024px) {
+  :root { --scramblePad: 1.1rem; }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --toolMinH: 120px;
+    --scrambleBottomH: 120px;
+    --scramblePad: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --toolMinH: 90px;
+    --scrambleBottomH: 90px;
+    --scramblePad: 0.65rem;
+  }
+}
