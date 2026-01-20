@@ -1,4 +1,4 @@
-let solves = [];
+let solves = []
 let sessions = {}; 
 let currentEvent = '333';
 let isRunning = false;
