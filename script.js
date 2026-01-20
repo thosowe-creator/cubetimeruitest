@@ -341,21 +341,23 @@ const APP_VERSION = '2';
 const RELEASE_NOTES = [
   {
     version: '2',
-    date: '2026.01.19',
+    date: '2026.01.20',
     items: {
       ko: [
-        '모든 종목의 스크램블 이미지 표기',
-        '모든 종목의 스크램블 로직 고도화',
-        '타이머 오차가 있던 현상 수정',
-        '멀티블라인드 스코어 입력 기능 추가',
-        '영어 및 한국어 지원',
+        'UI, UX 개편',
+        '모든 종목에서의 스크램블 시각화 지원',
+        '멀티블라인드 스코어 입력 지원',
+        '모바일 환경 사용성 개편',
+        '스페이스바 측정 정확도 개편',
+        '한국어 지원',
       ],
       en: [
-        'Scramble image display for all events',
-        'Improved scramble logic for all events',
-        'Fixed timer accuracy issue',
-        'Added multi-blind score input',
-        'Korean & English language support',
+        'UI & UX overhaul',
+        'Scramble visualization support for all events',
+        'Multi-Blind score input support',
+        'Improved usability in mobile environments',
+        'Improved spacebar timing accuracy',
+        'Korean language support',
       ]
     }
   },
@@ -388,8 +390,8 @@ const KNOWN_ISSUES = [
   {
     id: 'DL-001',
     title: {
-      ko: '모바일 UI가 여전히 모바일친화적이지 않아 수정 계획중입니다.',
-      en: 'Mobile UI is still not fully mobile-friendly; improvements are planned.',
+      ko: 'UI, UX의 추가적인 개편도 계획하고있습니다.',
+      en: 'Further UI/UX improvements are planned.',
     },
     status: 'planning',
     since: '2026.01.19'
