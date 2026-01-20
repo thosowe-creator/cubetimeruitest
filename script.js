@@ -936,6 +936,48 @@ function togglePenalty(p) {
     
     updateUI(); updatePenaltyBtns(targetSolve); saveData();
 }
+
+// History list (+2 / DNF) buttons
+// - Applies to the specific solve id
+// - Keeps timer display consistent when the edited solve is the latest one
+// - Updates the Solve Detail modal if it's open for the same solve
+window.toggleSolvePenalty = (solveId, penalty) => {
+    if (isRunning) return;
+    if (penalty !== '+2' && penalty !== 'DNF') return;
+    const s = solves.find(x => x.id === solveId);
+    if (!s) return;
+
+    // Toggle
+    s.penalty = (s.penalty === penalty) ? null : penalty;
+
+    // If this solve is the latest in the current event/session, reflect on main timer UI
+    const sid = getCurrentSessionId();
+    const latest = solves.find(x => x.event === currentEvent && x.sessionId === sid);
+    if (latest && latest.id === solveId) {
+        if (s.penalty === 'DNF') {
+            timerEl.innerText = 'DNF';
+        } else {
+            const t = s.time + (s.penalty === '+2' ? 2000 : 0);
+            timerEl.innerText = formatTime(t) + (s.penalty === '+2' ? '+' : '');
+        }
+        updatePenaltyBtns(s);
+    }
+
+    // If Solve Detail modal is open for this solve, refresh its time text
+    try {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay && overlay.classList.contains('active') && selectedSolveId === solveId) {
+            const timeEl = document.getElementById('modalTime');
+            if (timeEl) {
+                const base = (s.penalty === 'DNF') ? 'DNF' : formatTime(s.penalty === '+2' ? s.time + 2000 : s.time);
+                timeEl.innerText = `${base}${s.penalty === '+2' ? '+' : ''}`;
+            }
+        }
+    } catch (_) {}
+
+    updateUI();
+    saveData();
+};
 // --- Data Persistence ---
 function exportData() {
     const data = {
