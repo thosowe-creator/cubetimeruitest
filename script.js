@@ -450,9 +450,21 @@ const scrambleBoxEl = document.getElementById('scrambleBox');
 const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
 const timerContainerEl = document.getElementById('timerContainer');
 let __layoutRAF = 0;
-let __lastTimerShiftPx = 0;      // last applied dynamic Y shift (px)
-let __lockTimerReposition = false; // lock timer position while scramble is generating
-let __suppressTimerTransition = false; // disable transform transition temporarily
+let __timerLayoutLocked = false;
+let __timerLayoutUnlockQueued = false;
+
+function lockTimerLayout() { __timerLayoutLocked = true; }
+function unlockTimerLayoutAndRecenter(reason='scramble-ready') {
+    __timerLayoutLocked = false;
+    // coalesce unlock recenter to one RAF
+    if (__timerLayoutUnlockQueued) return;
+    __timerLayoutUnlockQueued = true;
+    requestAnimationFrame(() => {
+        __timerLayoutUnlockQueued = false;
+        scheduleLayout(reason);
+    });
+}
+
 
 function scheduleLayout(reason = '') {
     if (__layoutRAF) cancelAnimationFrame(__layoutRAF);
@@ -466,7 +478,7 @@ function applyLayoutBudgets(reason = '') {
     try {
         updateScrambleBottomAreaBudget();
         fitScrambleTextToBudget();
-        positionTimerToViewportCenter();
+        if (!__timerLayoutLocked) positionTimerToViewportCenter();
     } catch (e) {
         // Never break the timer if layout calc fails
         console.warn('[CubeTimer] layout budget error', e);
@@ -541,21 +553,18 @@ function positionTimerToViewportCenter() {
     if (!timerContainerEl || !scrambleBoxEl) return;
     // If the timer section is hidden (mobile history tab), don't fight layout.
     if (timerSection && timerSection.classList.contains('hidden')) return;
-    if (__lockTimerReposition) return;
 
     const viewportCenterY = window.innerHeight / 2;
-    const scrambleAnchorEl = (typeof scrambleEl !== 'undefined' && scrambleEl) ? scrambleEl : scrambleBoxEl;
-    if (!scrambleAnchorEl) return;
-    const scrambleRect = scrambleAnchorEl.getBoundingClientRect();
+    const scrambleRect = scrambleBoxEl.getBoundingClientRect();
 
-    // Measure the timer rect WITHOUT dynamic shift to avoid cumulative drift.
-    const prevDyn = timerContainerEl.style.getPropertyValue('--timerDynamicShift');
-    timerContainerEl.style.setProperty('--timerDynamicShift', '0px');
+    // Measure timer block without dynamic shift to avoid drift.
+    const rootStyle = getComputedStyle(document.documentElement);
+    const currentShiftPx = parseFloat(rootStyle.getPropertyValue('--timerDynamicShift')) || 0;
+
     const timerRect = timerContainerEl.getBoundingClientRect();
-    // Restore immediately (no paint until next frame).
-    if (prevDyn) timerContainerEl.style.setProperty('--timerDynamicShift', prevDyn);
-    else timerContainerEl.style.removeProperty('--timerDynamicShift');
     const timerHalf = timerRect.height / 2;
+
+    const currentCenterY = (timerRect.top + timerHalf) - currentShiftPx;
 
     const gap = window.innerWidth < 768 ? 10 : 14; // breathing room between scramble box and timer block
     const minCenterY = scrambleRect.bottom + gap + timerHalf;
@@ -568,22 +577,11 @@ function positionTimerToViewportCenter() {
     const maxCenterY = window.innerHeight - bottomMargin - timerHalf;
     targetCenterY = Math.min(targetCenterY, maxCenterY);
 
-    const currentCenterY = timerRect.top + timerHalf;
-    let dy = Math.round(targetCenterY - currentCenterY);
+    // Desired absolute shift (relative to the unshifted timer position)
+    const desiredShift = Math.round(targetCenterY - currentCenterY);
 
-    // Hysteresis: ignore tiny oscillations and reduce shaking
-    if (Math.abs(dy - __lastTimerShiftPx) < 3) dy = __lastTimerShiftPx;
-    if (Math.abs(dy) < 2) dy = 0;
-
-    if (__suppressTimerTransition) {
-        timerContainerEl.style.transition = 'none';
-    } else {
-        timerContainerEl.style.transition = 'transform 160ms ease';
-    }
-    timerContainerEl.style.setProperty('--timerDynamicShift', `${dy}px`);
-    __lastTimerShiftPx = dy;
+    document.documentElement.style.setProperty('--timerDynamicShift', `${desiredShift}px`);
 }
-
 ;
 const configs = {
     '333': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'standard' },
@@ -1458,14 +1456,14 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         scrambleDiagramSkeleton.classList.toggle('hidden', !isLoading);
     }
     if (isLoading) {
+        lockTimerLayout();
         // 종목 변경/재생성 시 이전 내용 즉시 숨김
         if (scrambleEl) scrambleEl.innerText = '';
         clearScrambleDiagram();
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
-    }    __lockTimerReposition = !!isLoading;
-    __suppressTimerTransition = !!isLoading;
-    scheduleLayout(isLoading ? 'scramble-loading' : 'scramble-ready');
+    }
+    scheduleLayout('scramble-loading');
 }
 
 window.retryScramble = () => {
@@ -1518,8 +1516,10 @@ async function generateScramble() {
             if (scrambleEl) scrambleEl.innerText = currentScramble;
             setScrambleLoadingState(false);
             updateScrambleDiagram();
+            unlockTimerLayoutAndRecenter('scramble-ready');
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
+            unlockTimerLayoutAndRecenter('scramble-ready');
             return;
             scheduleLayout('scramble-ready');
         } catch (err) {
@@ -1653,6 +1653,7 @@ async function generateScramble() {
     if (scrambleEl) scrambleEl.innerText = currentScramble;
     setScrambleLoadingState(false);
     updateScrambleDiagram();
+    unlockTimerLayoutAndRecenter('scramble-ready');
     resetPenalty();
     if (activeTool === 'graph') renderHistoryGraph();
     scheduleLayout('scramble-ready');
