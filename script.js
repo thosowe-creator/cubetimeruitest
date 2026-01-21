@@ -341,21 +341,21 @@ const APP_VERSION = '2';
 const RELEASE_NOTES = [
   {
     version: '2',
-    date: '2026.01.19',
+    date: '2026.01.21',
     items: {
       ko: [
-        '모든 종목의 스크램블 이미지 표기',
-        '모든 종목의 스크램블 로직 고도화',
-        '타이머 오차가 있던 현상 수정',
+        'PC, 모바일 UI/UX 개편',
+        '모든 종목에서 스크램블 시각화 지원',
         '멀티블라인드 스코어 입력 기능 추가',
-        '영어 및 한국어 지원',
+        '한국어 지원',
+        '스페이스바를 통한 측정 정확도 개선',
       ],
       en: [
-        'Scramble image display for all events',
-        'Improved scramble logic for all events',
-        'Fixed timer accuracy issue',
-        'Added multi-blind score input',
-        'Korean & English language support',
+        'PC & Mobile UI/UX overhaul',
+        'Scramble visualization support for all events',
+        'Multi-Blind score input feature added',
+        'Korean language support',
+        'Improved measurement accuracy using the spacebar',
       ]
     }
   },
@@ -388,11 +388,11 @@ const KNOWN_ISSUES = [
   {
     id: 'DL-001',
     title: {
-      ko: '모바일 UI가 여전히 모바일친화적이지 않아 수정 계획중입니다.',
-      en: 'Mobile UI is still not fully mobile-friendly; improvements are planned.',
+      ko: 'UI의 사소한 문제점들을 인지하고있으며 수정할 계획입니다.',
+      en: 'Some minor UI issues have been identified and will be improved in future updates.',
     },
     status: 'planning',
-    since: '2026.01.19'
+    since: '2026.01.21'
   }
 ];
 // Lazy Loading Vars
