@@ -43,7 +43,6 @@ body {
 .main-container {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
   /* 4rem = mobile bottom nav height */
   padding-bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
 }
@@ -561,33 +560,4 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   #settingsModal .settings-scroll .rounded-2xl{ padding: 0.65rem !important; }
   #settingsModal .settings-scroll p.text-xs{ font-size: 0.72rem !important; }
   #settingsModal .settings-scroll span.text-\[9px\]{ font-size: 0.55rem !important; }
-}
-
-
-/* ---- Stabilize timer shifting (JS sets --timerDynamicShift on :root) ---- */
-:root { --timerDynamicShift: 0px; }
-#timerContainer{
-  transform: translateY(var(--timerDynamicShift));
-  transition: transform 160ms ease;
-  will-change: transform;
-}
-
-/* ---- Settings modal: truly compact on mobile ---- */
-@media (max-width: 767px){
-  #settingsModal{ padding: 0.75rem !important; }
-  /* Limit modal height to ~1/2~2/3 screen */
-  #settingsModal .settings-scroll{
-    max-height: 62dvh !important;
-    padding-bottom: calc(3.2rem + env(safe-area-inset-bottom)) !important;
-  }
-  #settingsFooter{
-    padding: 0.6rem 0.75rem !important;
-  }
-  #settingsFooter button{
-    padding-top: 0.55rem !important;
-    padding-bottom: 0.55rem !important;
-  }
-}
-@media (max-width: 767px) and (max-height: 700px){
-  #settingsModal .settings-scroll{ max-height: 56dvh !important; }
 }
