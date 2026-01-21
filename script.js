@@ -443,7 +443,127 @@ const scrambleRetryBtn = document.getElementById('scrambleRetryBtn');
 const timerSection = document.getElementById('timerSection');
 const historySection = document.getElementById('historySection');
 const mobTabTimer = document.getElementById('mob-tab-timer');
-const mobTabHistory = document.getElementById('mob-tab-history');
+const mobTabHistory = document.getElementById('mob-tab-history')
+
+// --- Layout: viewport-centered timer + dynamic scramble sizing (no scroll / no "more") ---
+const scrambleBoxEl = document.getElementById('scrambleBox');
+const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
+const timerContainerEl = document.getElementById('timerContainer');
+let __layoutRAF = 0;
+
+function scheduleLayout(reason = '') {
+    if (__layoutRAF) cancelAnimationFrame(__layoutRAF);
+    __layoutRAF = requestAnimationFrame(() => {
+        __layoutRAF = 0;
+        applyLayoutBudgets(reason);
+    });
+}
+
+function applyLayoutBudgets(reason = '') {
+    try {
+        updateScrambleBottomAreaBudget();
+        fitScrambleTextToBudget();
+        positionTimerToViewportCenter();
+    } catch (e) {
+        // Never break the timer if layout calc fails
+        console.warn('[CubeTimer] layout budget error', e);
+    }
+}
+
+function updateScrambleBottomAreaBudget() {
+    // Reduce the huge "dead space" below scramble text.
+    // Only keep extra space when showing loading skeleton / retry button.
+    const root = document.documentElement;
+    const isSkeletonVisible = scrambleDiagramSkeleton && !scrambleDiagramSkeleton.classList.contains('hidden');
+    const isRetryVisible = scrambleRetryBtn && !scrambleRetryBtn.classList.contains('hidden');
+
+    if (isSkeletonVisible || isRetryVisible) {
+        // Match skeleton's rendered height (fallback to 160)
+        const rect = scrambleDiagramSkeleton ? scrambleDiagramSkeleton.getBoundingClientRect() : null;
+        const h = rect && rect.height ? rect.height : (window.innerWidth >= 768 ? 220 : 190);
+        root.style.setProperty('--scrambleBottomH', `${Math.round(h)}px`);
+    } else {
+        // Keep a small cushion so the layout doesn't feel cramped
+        root.style.setProperty('--scrambleBottomH', '10px');
+    }
+}
+
+function fitScrambleTextToBudget() {
+    if (!scrambleEl || scrambleEl.classList.contains('hidden')) return;
+    if (currentEvent === '333mbf') return;
+
+    // Width: use as much as possible, but keep comfortable side padding via scrambleBox padding var.
+    // Height: keep scramble text from pushing the timer off-screen.
+    const isMobile = window.innerWidth < 768;
+    const vh = window.innerHeight || 0;
+    const maxTextH = Math.max(52, Math.min(isMobile ? 120 : 150, Math.floor(vh * (isMobile ? 0.16 : 0.14))));
+    scrambleEl.style.maxHeight = `${maxTextH}px`;
+    scrambleEl.style.overflow = 'hidden';
+
+    // Reset to CSS baseline before measuring
+    scrambleEl.style.fontSize = '';
+    scrambleEl.style.lineHeight = '';
+    scrambleEl.style.letterSpacing = '';
+
+    const computed = window.getComputedStyle(scrambleEl);
+    let fontPx = parseFloat(computed.fontSize) || (isMobile ? 16 : 20);
+    const minFont = isMobile ? 12 : 16; // readability floor
+    const step = isMobile ? 0.75 : 0.6;
+
+    // Slightly tighten when we have to shrink
+    const tighten = (scale) => {
+        scrambleEl.style.lineHeight = scale < 0.9 ? '1.15' : '1.3';
+        scrambleEl.style.letterSpacing = scale < 0.85 ? '-0.02em' : '0';
+    };
+
+    // Iterate down until it fits
+    let safety = 0;
+    while (safety++ < 60) {
+        const fits = scrambleEl.scrollHeight <= maxTextH + 1;
+        if (fits) break;
+        const next = fontPx - step;
+        if (next < minFont) {
+            // Hard stop: keep min font; overflow stays hidden but should be rare.
+            scrambleEl.style.fontSize = `${minFont}px`;
+            tighten(minFont / (isMobile ? 16 : 20));
+            break;
+        }
+        fontPx = next;
+        scrambleEl.style.fontSize = `${fontPx}px`;
+        tighten(fontPx / (isMobile ? 16 : 20));
+    }
+}
+
+function positionTimerToViewportCenter() {
+    if (!timerContainerEl || !scrambleBoxEl) return;
+    // If the timer section is hidden (mobile history tab), don't fight layout.
+    if (timerSection && timerSection.classList.contains('hidden')) return;
+
+    const viewportCenterY = window.innerHeight / 2;
+    const scrambleRect = scrambleBoxEl.getBoundingClientRect();
+    const timerRect = timerContainerEl.getBoundingClientRect();
+    const timerHalf = timerRect.height / 2;
+
+    const gap = window.innerWidth < 768 ? 10 : 14; // breathing room between scramble box and timer block
+    const minCenterY = scrambleRect.bottom + gap + timerHalf;
+
+    // Target center is viewport center, but never collide with scramble area
+    let targetCenterY = Math.max(viewportCenterY, minCenterY);
+
+    // Prevent pushing past bottom (keep at least a small margin)
+    const bottomMargin = (window.innerWidth < 768 ? 18 : 22);
+    const maxCenterY = window.innerHeight - bottomMargin - timerHalf;
+    targetCenterY = Math.min(targetCenterY, maxCenterY);
+
+    const currentCenterY = timerRect.top + timerHalf;
+    const dy = Math.round(targetCenterY - currentCenterY);
+
+    // Apply translation
+    timerContainerEl.style.transform = `translateY(${dy}px)`;
+    timerContainerEl.style.transition = 'transform 160ms ease';
+}
+
+;
 const configs = {
     '333': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'standard' },
     '333oh': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'standard' },
@@ -519,6 +639,7 @@ window.addEventListener('resize', () => {
             switchMobileTab('history');
         }
     }
+    scheduleLayout('resize');
 });
 // --- Update Log / Known Issues ---
 function renderUpdateLog(latestOnly = true) {
@@ -1196,6 +1317,7 @@ window.selectTool = (tool) => {
         drawCube();
         updateScrambleDiagram();
     }
+    scheduleLayout('tool');
 };
 window.addEventListener('click', () => { document.getElementById('toolsDropdown').classList.remove('show'); });
 function renderHistoryGraph() {
@@ -1288,6 +1410,7 @@ function changeEvent(e) {
     }
     
     updateUI(); timerEl.innerText = (0).toFixed(precision); saveData();
+    scheduleLayout('event-change');
 }
 
 function clearScrambleDiagram() {
@@ -1320,6 +1443,7 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
     }
+    scheduleLayout('scramble-loading');
 }
 
 window.retryScramble = () => {
@@ -1375,6 +1499,7 @@ async function generateScramble() {
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
             return;
+            scheduleLayout('scramble-ready');
         } catch (err) {
             if (reqId !== scrambleReqId) return;
             console.warn('[CubeTimer] cubing.js scramble failed. Falling back to internal generator.', err);
@@ -1508,6 +1633,7 @@ async function generateScramble() {
     updateScrambleDiagram();
     resetPenalty();
     if (activeTool === 'graph') renderHistoryGraph();
+    scheduleLayout('scramble-ready');
 }
 function updateScrambleDiagram() {
     if (!scrambleDiagram) return;
