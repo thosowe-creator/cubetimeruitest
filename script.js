@@ -450,6 +450,15 @@ const scrambleBoxEl = document.getElementById('scrambleBox');
 const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
 const timerContainerEl = document.getElementById('timerContainer');
 let __layoutRAF = 0;
+let __timerLayoutLocked = false;
+
+/** Lock timer recentering while scramble/diagram is regenerating (prevents oscillation). */
+function lockTimerLayout() { __timerLayoutLocked = true; }
+/** Unlock and request a single recenter on next layout pass. */
+function unlockTimerLayoutAndRecenter(reason='scramble-ready') {
+    __timerLayoutLocked = false;
+    scheduleLayout(reason);
+}
 
 function scheduleLayout(reason = '') {
     if (__layoutRAF) cancelAnimationFrame(__layoutRAF);
@@ -463,7 +472,7 @@ function applyLayoutBudgets(reason = '') {
     try {
         updateScrambleBottomAreaBudget();
         fitScrambleTextToBudget();
-        positionTimerToViewportCenter();
+        if (!__timerLayoutLocked) positionTimerToViewportCenter();
     } catch (e) {
         // Never break the timer if layout calc fails
         console.warn('[CubeTimer] layout budget error', e);
@@ -496,10 +505,9 @@ function fitScrambleTextToBudget() {
     // Height: keep scramble text from pushing the timer off-screen.
     const isMobile = window.innerWidth < 768;
     const vh = window.innerHeight || 0;
-    const isMinx = currentEvent === 'minx';
-    const desktopCap = isMinx ? 240 : 150;
-    const mobileCap = isMinx ? 160 : 120;
-    const maxTextH = Math.max(52, Math.min(isMobile ? mobileCap : desktopCap, Math.floor(vh * (isMobile ? 0.18 : 0.16))));
+    const isMinx = typeof currentEvent === 'string' && currentEvent.includes('minx');
+    const cap = isMobile ? (isMinx ? 160 : 120) : (isMinx ? 220 : 170);
+    const maxTextH = Math.max(52, Math.min(cap, Math.floor(vh * (isMobile ? 0.18 : 0.20))));
     scrambleEl.style.maxHeight = `${maxTextH}px`;
     scrambleEl.style.overflow = 'hidden';
 
@@ -1440,13 +1448,14 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         scrambleDiagramSkeleton.classList.toggle('hidden', !isLoading);
     }
     if (isLoading) {
+        lockTimerLayout();
         // 종목 변경/재생성 시 이전 내용 즉시 숨김
         if (scrambleEl) scrambleEl.innerText = '';
         clearScrambleDiagram();
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
     }
-    scheduleLayout('scramble-loading');
+    scheduleLayout(isLoading ? 'scramble-loading' : 'scramble-ready');
 }
 
 window.retryScramble = () => {
