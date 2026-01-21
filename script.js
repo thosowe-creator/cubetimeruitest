@@ -451,6 +451,10 @@ const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
 const timerContainerEl = document.getElementById('timerContainer');
 let __layoutRAF = 0;
 let __lastTimerDy = 0;
+/* Dynamic shift applied via CSS var --timerDynamicShift (to avoid clobbering CSS transforms) */
+let __currentTimerDynamicShift = 0;
+let __timerLockActive = false;
+let __lockedTimerDynamicShift = 0;
 let __suppressTimerTransition = false;
 
 
@@ -542,10 +546,20 @@ function positionTimerToViewportCenter() {
     // If the timer section is hidden (mobile history tab), don't fight layout.
     if (timerSection && timerSection.classList.contains('hidden')) return;
 
+    // If scramble is in a transient "generating/loading" state, freeze the timer position
+    // so the timer doesn't jitter while the scramble box height/contents change.
+    if (__timerLockActive) {
+        timerContainerEl.style.transition = 'none';
+        timerContainerEl.style.setProperty('--timerDynamicShift', `${Math.round(__lockedTimerDynamicShift)}px`);
+        __currentTimerDynamicShift = __lockedTimerDynamicShift;
+        __lastTimerDy = Math.round(__lockedTimerDynamicShift);
+        return;
+    }
+
     const viewportCenterY = window.innerHeight / 2;
 
-    // Important: DO NOT let the visualizer reserve-area (skeleton/diagram) push the timer down.
-    // Use the scramble text block as the collision boundary instead of the whole scramble box.
+    // Use the scramble text block as the collision boundary instead of the whole scramble box
+    // (visualizer reserve-area should not push the timer down).
     const scrambleAnchorEl = scrambleEl || scrambleBoxEl;
     if (!scrambleAnchorEl) return;
 
@@ -554,7 +568,7 @@ function positionTimerToViewportCenter() {
     const timerHalf = timerRect.height / 2;
 
     const isMobile = window.innerWidth < 768;
-    const gap = isMobile ? 10 : 14; // breathing room between scramble and timer
+    const gap = isMobile ? 10 : 14;
     const minCenterY = scrambleRect.bottom + gap + timerHalf;
 
     // Target center is viewport center, but never collide with scramble area
@@ -567,14 +581,21 @@ function positionTimerToViewportCenter() {
     targetCenterY = Math.max(minAllowed, Math.min(maxAllowed, targetCenterY));
 
     const currentCenterY = timerRect.top + timerHalf;
-    let dy = Math.round(targetCenterY - currentCenterY);
 
-    // Jitter guard: ignore tiny oscillations (especially during scramble loading/diagram swaps)
-    if (Math.abs(dy - __lastTimerDy) < 3) dy = __lastTimerDy;
-    if (Math.abs(dy) < 2) dy = 0;
+    // Compute delta from current position, then apply it to the dynamic shift.
+    // This avoids clobbering the CSS base shift (vh) and prevents drift/rocket behavior.
+    const delta = targetCenterY - currentCenterY;
+    let desiredDynamic = __currentTimerDynamicShift + delta;
+
+    // Round for stability
+    desiredDynamic = Math.round(desiredDynamic);
+
+    // Jitter guard: ignore tiny oscillations (especially during scramble diagram swaps)
+    if (Math.abs(desiredDynamic - __lastTimerDy) < 2) desiredDynamic = __lastTimerDy;
+    if (Math.abs(desiredDynamic) < 1) desiredDynamic = 0;
 
     // Transition policy:
-    // - While scramble is generating/loading, keep transform updates instant to avoid "earthquake" shaking.
+    // - While scramble is generating/loading, keep updates instant to avoid shaking.
     // - Otherwise allow a short ease for polish.
     if (__suppressTimerTransition) {
         timerContainerEl.style.transition = 'none';
@@ -582,8 +603,9 @@ function positionTimerToViewportCenter() {
         timerContainerEl.style.transition = 'transform 160ms ease';
     }
 
-    timerContainerEl.style.transform = `translateY(${dy}px)`;
-    __lastTimerDy = dy;
+    timerContainerEl.style.setProperty('--timerDynamicShift', `${desiredDynamic}px`);
+    __currentTimerDynamicShift = desiredDynamic;
+    __lastTimerDy = desiredDynamic;
 }
 ;
 const configs = {
@@ -647,6 +669,11 @@ window.switchMobileTab = (tab) => {
     }
 };
 // Ensure desktop layout on resize
+window.addEventListener('load', () => {
+    // Ensure timer/scramble layout is correct on first paint (especially on mobile)
+    scheduleLayout('init');
+});
+
 window.addEventListener('resize', () => {
     if (window.innerWidth >= 768) {
         // Desktop: Show both
@@ -1466,6 +1493,13 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
     }
     __suppressTimerTransition = !!isLoading;
+    // Freeze timer position during scramble generation/loading to prevent jitter.
+    if (isLoading) {
+        __timerLockActive = true;
+        __lockedTimerDynamicShift = __currentTimerDynamicShift;
+    } else {
+        __timerLockActive = false;
+    }
     scheduleLayout(isLoading ? 'scramble-loading' : 'scramble-ready');
 }
 
