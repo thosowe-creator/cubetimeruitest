@@ -1044,10 +1044,15 @@ function stopTimer(forcedTime = null) {
 
     // Multi-Blind: WCA식 입력 모달에서 결과를 완성해야 저장
     if (currentEvent === '333mbf') {
+        // IMPORTANT: ensure timer status styles don't persist into other events.
+        // (Multi-BLD stops early to open a result modal, so we must manually reset UI state here.)
         isRunning = isReady = false;
         inspectionState = 'none';
         inspectionPenalty = null;
         setControlsLocked(false);
+
+        timerEl.classList.remove('text-running', 'text-ready', 'text-hold', 'holding-status', 'ready-to-start');
+        timerEl.style.color = '';
         timerEl.innerText = formatTime(elapsed);
         statusHint.innerText = "Enter MBF Result";
         openMbfResultModal({ defaultTimeMs: elapsed });
