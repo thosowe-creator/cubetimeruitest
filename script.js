@@ -484,7 +484,7 @@ function updateScrambleBottomAreaBudget() {
         root.style.setProperty('--scrambleBottomH', `${Math.round(h)}px`);
     } else {
         // Keep a small cushion so the layout doesn't feel cramped
-        root.style.setProperty('--scrambleBottomH', '10px');
+        root.style.setProperty('--scrambleBottomH', 'clamp(12px, 1.4vh, 18px)');
     }
 }
 
@@ -1498,8 +1498,8 @@ async function generateScramble() {
             updateScrambleDiagram();
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
-            return;
             scheduleLayout('scramble-ready');
+            return;
         } catch (err) {
             if (reqId !== scrambleReqId) return;
             console.warn('[CubeTimer] cubing.js scramble failed. Falling back to internal generator.', err);
