@@ -4,7 +4,7 @@ let currentEvent = '333';
 let isRunning = false;
 let isReady = false;
 let startTime;
-let timerInterval
+let timerInterval;
 let timerRafId = null;
 let startPerf = 0;
 let currentScramble = "";
