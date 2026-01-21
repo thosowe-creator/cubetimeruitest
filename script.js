@@ -451,20 +451,14 @@ const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
 const timerContainerEl = document.getElementById('timerContainer');
 let __layoutRAF = 0;
 let __timerLayoutLocked = false;
-let __timerLayoutUnlockQueued = false;
 
+/** Lock timer recentering while scramble/diagram is regenerating (prevents oscillation). */
 function lockTimerLayout() { __timerLayoutLocked = true; }
+/** Unlock and request a single recenter on next layout pass. */
 function unlockTimerLayoutAndRecenter(reason='scramble-ready') {
     __timerLayoutLocked = false;
-    // coalesce unlock recenter to one RAF
-    if (__timerLayoutUnlockQueued) return;
-    __timerLayoutUnlockQueued = true;
-    requestAnimationFrame(() => {
-        __timerLayoutUnlockQueued = false;
-        scheduleLayout(reason);
-    });
+    scheduleLayout(reason);
 }
-
 
 function scheduleLayout(reason = '') {
     if (__layoutRAF) cancelAnimationFrame(__layoutRAF);
@@ -511,7 +505,9 @@ function fitScrambleTextToBudget() {
     // Height: keep scramble text from pushing the timer off-screen.
     const isMobile = window.innerWidth < 768;
     const vh = window.innerHeight || 0;
-    const maxTextH = Math.max(52, Math.min(isMobile ? 120 : 150, Math.floor(vh * (isMobile ? 0.16 : 0.14))));
+    const isMinx = typeof currentEvent === 'string' && currentEvent.includes('minx');
+    const cap = isMobile ? (isMinx ? 160 : 120) : (isMinx ? 220 : 170);
+    const maxTextH = Math.max(52, Math.min(cap, Math.floor(vh * (isMobile ? 0.18 : 0.20))));
     scrambleEl.style.maxHeight = `${maxTextH}px`;
     scrambleEl.style.overflow = 'hidden';
 
@@ -556,15 +552,8 @@ function positionTimerToViewportCenter() {
 
     const viewportCenterY = window.innerHeight / 2;
     const scrambleRect = scrambleBoxEl.getBoundingClientRect();
-
-    // Measure timer block without dynamic shift to avoid drift.
-    const rootStyle = getComputedStyle(document.documentElement);
-    const currentShiftPx = parseFloat(rootStyle.getPropertyValue('--timerDynamicShift')) || 0;
-
     const timerRect = timerContainerEl.getBoundingClientRect();
     const timerHalf = timerRect.height / 2;
-
-    const currentCenterY = (timerRect.top + timerHalf) - currentShiftPx;
 
     const gap = window.innerWidth < 768 ? 10 : 14; // breathing room between scramble box and timer block
     const minCenterY = scrambleRect.bottom + gap + timerHalf;
@@ -577,11 +566,14 @@ function positionTimerToViewportCenter() {
     const maxCenterY = window.innerHeight - bottomMargin - timerHalf;
     targetCenterY = Math.min(targetCenterY, maxCenterY);
 
-    // Desired absolute shift (relative to the unshifted timer position)
-    const desiredShift = Math.round(targetCenterY - currentCenterY);
+    const currentCenterY = timerRect.top + timerHalf;
+    const dy = Math.round(targetCenterY - currentCenterY);
 
-    document.documentElement.style.setProperty('--timerDynamicShift', `${desiredShift}px`);
+    // Apply translation
+    timerContainerEl.style.transform = `translateY(${dy}px)`;
+    timerContainerEl.style.transition = 'transform 160ms ease';
 }
+
 ;
 const configs = {
     '333': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'standard' },
@@ -1463,7 +1455,7 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
     }
-    scheduleLayout('scramble-loading');
+    scheduleLayout(isLoading ? 'scramble-loading' : 'scramble-ready');
 }
 
 window.retryScramble = () => {
@@ -1516,10 +1508,8 @@ async function generateScramble() {
             if (scrambleEl) scrambleEl.innerText = currentScramble;
             setScrambleLoadingState(false);
             updateScrambleDiagram();
-            unlockTimerLayoutAndRecenter('scramble-ready');
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
-            unlockTimerLayoutAndRecenter('scramble-ready');
             return;
             scheduleLayout('scramble-ready');
         } catch (err) {
@@ -1653,7 +1643,6 @@ async function generateScramble() {
     if (scrambleEl) scrambleEl.innerText = currentScramble;
     setScrambleLoadingState(false);
     updateScrambleDiagram();
-    unlockTimerLayoutAndRecenter('scramble-ready');
     resetPenalty();
     if (activeTool === 'graph') renderHistoryGraph();
     scheduleLayout('scramble-ready');
