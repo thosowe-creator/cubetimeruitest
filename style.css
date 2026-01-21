@@ -72,34 +72,45 @@ body {
   touch-action: pan-y;
   /* Reserve space so the last item isn't hidden behind the sticky footer */
   padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
-
+}
 
 /* Mobile: keep Settings modal compact (roughly 1/2~2/3 of the screen) */
 @media (max-width: 767px) {
   #settingsModal {
-    max-height: min(70dvh, 560px);
-    padding-top: 1rem !important;
-    padding-bottom: 0.9rem !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-  #settingsModal h3 {
-    margin-bottom: 0.5rem !important;
-    font-size: 1rem !important;
+    /* User feedback: still too tall → cap closer to ~1/2–2/3 on phones */
+    max-height: min(62dvh, 520px);
+    padding-top: 0.85rem !important;
+    padding-bottom: 0.85rem !important;
   }
   #settingsModal .settings-scroll {
-    padding-bottom: calc(3.25rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(3.05rem + env(safe-area-inset-bottom));
   }
   #settingsModal .settings-footer {
-    padding-top: 0.65rem !important;
-    padding-bottom: 0.55rem !important;
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.45rem !important;
   }
   #settingsModal .settings-footer button {
-    padding-top: 0.65rem !important;
-    padding-bottom: 0.65rem !important;
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
   }
 }
+
+/* Extra-tight: very short screens */
+@media (max-width: 767px) and (max-height: 640px) {
+  #settingsModal {
+    max-height: min(56dvh, 480px);
+    padding-top: 0.7rem !important;
+    padding-bottom: 0.7rem !important;
+  }
+  #settingsModal .settings-scroll {
+    padding-bottom: calc(2.85rem + env(safe-area-inset-bottom));
+  }
+  #settingsModal .settings-footer button {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
 }
+
 
 .history-panel { border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: 100%; }
 
@@ -588,16 +599,18 @@ body.no-scroll { overflow: hidden; }
 
 
 .timer-center-shift {
-  /* Visually center the timer cluster on mobile */
-  transform: translateY(-12vh);
+  /* Base (static) shift + dynamic (JS) shift combined without clobbering transforms */
+  --timerBaseShift: -12vh;
+  --timerDynamicShift: 0px;
+  transform: translateY(calc(var(--timerBaseShift) + var(--timerDynamicShift)));
 }
 
 @media (max-height: 700px) {
-  .timer-center-shift { transform: translateY(-8vh); }
+  .timer-center-shift { --timerBaseShift: -8vh; }
 }
 
 @media (min-width: 768px) {
-  .timer-center-shift { transform: translateY(-5vh); }
+  .timer-center-shift { --timerBaseShift: -5vh; }
 }
 
 /* Make tap targets consistently clickable on iOS inside scroll areas */
