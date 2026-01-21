@@ -450,6 +450,9 @@ const scrambleBoxEl = document.getElementById('scrambleBox');
 const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
 const timerContainerEl = document.getElementById('timerContainer');
 let __layoutRAF = 0;
+let __lastTimerDy = 0;
+let __suppressTimerTransition = false;
+
 
 function scheduleLayout(reason = '') {
     if (__layoutRAF) cancelAnimationFrame(__layoutRAF);
@@ -535,34 +538,53 @@ function fitScrambleTextToBudget() {
 }
 
 function positionTimerToViewportCenter() {
-    if (!timerContainerEl || !scrambleBoxEl) return;
+    if (!timerContainerEl) return;
     // If the timer section is hidden (mobile history tab), don't fight layout.
     if (timerSection && timerSection.classList.contains('hidden')) return;
 
     const viewportCenterY = window.innerHeight / 2;
-    const scrambleRect = scrambleBoxEl.getBoundingClientRect();
+
+    // Important: DO NOT let the visualizer reserve-area (skeleton/diagram) push the timer down.
+    // Use the scramble text block as the collision boundary instead of the whole scramble box.
+    const scrambleAnchorEl = scrambleEl || scrambleBoxEl;
+    if (!scrambleAnchorEl) return;
+
+    const scrambleRect = scrambleAnchorEl.getBoundingClientRect();
     const timerRect = timerContainerEl.getBoundingClientRect();
     const timerHalf = timerRect.height / 2;
 
-    const gap = window.innerWidth < 768 ? 10 : 14; // breathing room between scramble box and timer block
+    const isMobile = window.innerWidth < 768;
+    const gap = isMobile ? 10 : 14; // breathing room between scramble and timer
     const minCenterY = scrambleRect.bottom + gap + timerHalf;
 
     // Target center is viewport center, but never collide with scramble area
     let targetCenterY = Math.max(viewportCenterY, minCenterY);
 
-    // Prevent pushing past bottom (keep at least a small margin)
-    const bottomMargin = (window.innerWidth < 768 ? 18 : 22);
-    const maxCenterY = window.innerHeight - bottomMargin - timerHalf;
-    targetCenterY = Math.min(targetCenterY, maxCenterY);
+    // Keep within viewport bounds
+    const margin = isMobile ? 14 : 18;
+    const minAllowed = margin + timerHalf;
+    const maxAllowed = window.innerHeight - margin - timerHalf;
+    targetCenterY = Math.max(minAllowed, Math.min(maxAllowed, targetCenterY));
 
     const currentCenterY = timerRect.top + timerHalf;
-    const dy = Math.round(targetCenterY - currentCenterY);
+    let dy = Math.round(targetCenterY - currentCenterY);
 
-    // Apply translation
+    // Jitter guard: ignore tiny oscillations (especially during scramble loading/diagram swaps)
+    if (Math.abs(dy - __lastTimerDy) < 3) dy = __lastTimerDy;
+    if (Math.abs(dy) < 2) dy = 0;
+
+    // Transition policy:
+    // - While scramble is generating/loading, keep transform updates instant to avoid "earthquake" shaking.
+    // - Otherwise allow a short ease for polish.
+    if (__suppressTimerTransition) {
+        timerContainerEl.style.transition = 'none';
+    } else {
+        timerContainerEl.style.transition = 'transform 160ms ease';
+    }
+
     timerContainerEl.style.transform = `translateY(${dy}px)`;
-    timerContainerEl.style.transition = 'transform 160ms ease';
+    __lastTimerDy = dy;
 }
-
 ;
 const configs = {
     '333': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'standard' },
@@ -1443,7 +1465,8 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
     }
-    scheduleLayout('scramble-loading');
+    __suppressTimerTransition = !!isLoading;
+    scheduleLayout(isLoading ? 'scramble-loading' : 'scramble-ready');
 }
 
 window.retryScramble = () => {
