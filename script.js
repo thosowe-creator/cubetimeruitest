@@ -1,5 +1,5 @@
 let solves = [];
-let sessions = {}; 
+let sessions = {}
 let currentEvent = '333';
 let isRunning = false;
 let isReady = false;
