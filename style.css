@@ -1,8 +1,4 @@
 html, body { height: 100%; }
-
-/* Safe-area utility (used in mobile bottom nav) */
-.pb-safe{ padding-bottom: env(safe-area-inset-bottom); }
-
 html { height: 100dvh; overflow: hidden; }
 body {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -47,6 +43,7 @@ body {
 .main-container {
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
   /* 4rem = mobile bottom nav height */
   padding-bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
 }
@@ -567,30 +564,41 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
 }
 
 
-/* --- Mobile layout fixes (2026-01) --- */
-/* Settings modal: keep around ~2/3 of viewport height on mobile */
-@media (max-width: 767px) {
-  #settingsModal { max-height: 66dvh !important; }
-}
-@media (max-width: 480px) {
-  #settingsModal { max-height: 62dvh !important; }
-}
-@media (max-width: 767px) and (max-height: 700px) {
-  #settingsModal { max-height: 60dvh !important; }
-}
-@media (max-width: 767px) and (max-height: 620px) {
-  #settingsModal { max-height: 56dvh !important; }
-}
+/* ===== Mobile layout stability (prevent body scroll & keep content above bottom nav) ===== */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
-/* Mobile fixed bottom nav: reserve space so content doesn't sit under it */
-@media (max-width: 767px) {
-  #mainContent{ padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
-}
+html, body { height: 100%; }
+body { overflow: hidden; }
 
-/* Mobile Stats(History) tab: keep it above the bottom nav without forcing extra blank space */
-@media (max-width: 767px) {
-  /* Let the flex layout size naturally; mainContent padding handles the nav overlap. */
-  #historySection{ max-height: none; height: auto; }
-  #historyList{ padding-bottom: 0; }
-}
+/* Ensure the main area can shrink and doesn't force body scrolling */
+main { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+#mainContent { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
+@media (max-width: 767px) {
+  /* Keep all content above the fixed bottom navigation bar */
+  #mainContent {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  /* Stats/History: scroll only the list, never the whole page */
+  #historySection {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #historyList {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 1rem;
+  }
+
+  /* Timer view: don't let internal layout changes create page scroll */
+  #timerSection {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
