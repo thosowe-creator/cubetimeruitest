@@ -1,4 +1,8 @@
 html, body { height: 100%; }
+
+/* Safe-area utility (used in mobile bottom nav) */
+.pb-safe{ padding-bottom: env(safe-area-inset-bottom); }
+
 html { height: 100dvh; overflow: hidden; }
 body {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -578,13 +582,15 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   #settingsModal { max-height: 56dvh !important; }
 }
 
-/* Mobile Stats(History) tab: avoid bottom clipping behind the fixed tab bar */
+/* Mobile fixed bottom nav: reserve space so content doesn't sit under it */
 @media (max-width: 767px) {
-  #historySection {
-    height: calc(100dvh - 4rem - env(safe-area-inset-bottom));
-    max-height: calc(100dvh - 4rem - env(safe-area-inset-bottom));
-  }
-  /* Keep list content above the tab bar */
-  #historyList { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+  #mainContent{ padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+}
+
+/* Mobile Stats(History) tab: keep it above the bottom nav without forcing extra blank space */
+@media (max-width: 767px) {
+  /* Let the flex layout size naturally; mainContent padding handles the nav overlap. */
+  #historySection{ max-height: none; height: auto; }
+  #historyList{ padding-bottom: 0; }
 }
 
