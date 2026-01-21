@@ -587,10 +587,19 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   #mainContent{ padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
 }
 
-/* Mobile Stats(History) tab: keep it above the bottom nav without forcing extra blank space */
+/* Mobile Stats(History) tab: cap the visible History list to ~2 items (actual item height) and scroll the rest */
 @media (max-width: 767px) {
-  /* Let the flex layout size naturally; mainContent padding handles the nav overlap. */
-  #historySection{ max-height: none; height: auto; }
-  #historyList{ padding-bottom: 0; }
+  /* Keep the panel within the main flex layout (no page growth) */
+  #historySection{ height: 100%; min-height: 0; }
+
+  /* On mobile, show only ~2 items worth of height, then scroll */
+  #historyList{
+    flex: 0 0 auto;
+    max-height: var(--mobHistoryListMaxH, 240px);
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
+}
+#historyList{ padding-bottom: 0; }
 }
 
