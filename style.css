@@ -561,3 +561,30 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   #settingsModal .settings-scroll p.text-xs{ font-size: 0.72rem !important; }
   #settingsModal .settings-scroll span.text-\[9px\]{ font-size: 0.55rem !important; }
 }
+
+
+/* --- Mobile layout fixes (2026-01) --- */
+/* Settings modal: keep around ~2/3 of viewport height on mobile */
+@media (max-width: 767px) {
+  #settingsModal { max-height: 66dvh !important; }
+}
+@media (max-width: 480px) {
+  #settingsModal { max-height: 62dvh !important; }
+}
+@media (max-width: 767px) and (max-height: 700px) {
+  #settingsModal { max-height: 60dvh !important; }
+}
+@media (max-width: 767px) and (max-height: 620px) {
+  #settingsModal { max-height: 56dvh !important; }
+}
+
+/* Mobile Stats(History) tab: avoid bottom clipping behind the fixed tab bar */
+@media (max-width: 767px) {
+  #historySection {
+    height: calc(100dvh - 4rem - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 4rem - env(safe-area-inset-bottom));
+  }
+  /* Keep list content above the tab bar */
+  #historyList { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+}
+
