@@ -450,13 +450,9 @@ const scrambleBoxEl = document.getElementById('scrambleBox');
 const scrambleBottomAreaEl = document.querySelector('.scramble-bottom-area');
 const timerContainerEl = document.getElementById('timerContainer');
 let __layoutRAF = 0;
-let __lastTimerDy = 0;
-/* Dynamic shift applied via CSS var --timerDynamicShift (to avoid clobbering CSS transforms) */
-let __currentTimerDynamicShift = 0;
-let __timerLockActive = false;
-let __lockedTimerDynamicShift = 0;
-let __suppressTimerTransition = false;
-
+let __lastTimerShiftPx = 0;      // last applied dynamic Y shift (px)
+let __lockTimerReposition = false; // lock timer position while scramble is generating
+let __suppressTimerTransition = false; // disable transform transition temporarily
 
 function scheduleLayout(reason = '') {
     if (__layoutRAF) cancelAnimationFrame(__layoutRAF);
@@ -491,7 +487,7 @@ function updateScrambleBottomAreaBudget() {
         root.style.setProperty('--scrambleBottomH', `${Math.round(h)}px`);
     } else {
         // Keep a small cushion so the layout doesn't feel cramped
-        root.style.setProperty('--scrambleBottomH', 'clamp(12px, 1.4vh, 18px)');
+        root.style.setProperty('--scrambleBottomH', '10px');
     }
 }
 
@@ -542,71 +538,52 @@ function fitScrambleTextToBudget() {
 }
 
 function positionTimerToViewportCenter() {
-    if (!timerContainerEl) return;
+    if (!timerContainerEl || !scrambleBoxEl) return;
     // If the timer section is hidden (mobile history tab), don't fight layout.
     if (timerSection && timerSection.classList.contains('hidden')) return;
-
-    // If scramble is in a transient "generating/loading" state, freeze the timer position
-    // so the timer doesn't jitter while the scramble box height/contents change.
-    if (__timerLockActive) {
-        timerContainerEl.style.transition = 'none';
-        timerContainerEl.style.setProperty('--timerDynamicShift', `${Math.round(__lockedTimerDynamicShift)}px`);
-        __currentTimerDynamicShift = __lockedTimerDynamicShift;
-        __lastTimerDy = Math.round(__lockedTimerDynamicShift);
-        return;
-    }
+    if (__lockTimerReposition) return;
 
     const viewportCenterY = window.innerHeight / 2;
-
-    // Use the scramble text block as the collision boundary instead of the whole scramble box
-    // (visualizer reserve-area should not push the timer down).
-    const scrambleAnchorEl = scrambleEl || scrambleBoxEl;
+    const scrambleAnchorEl = (typeof scrambleEl !== 'undefined' && scrambleEl) ? scrambleEl : scrambleBoxEl;
     if (!scrambleAnchorEl) return;
-
     const scrambleRect = scrambleAnchorEl.getBoundingClientRect();
+
+    // Measure the timer rect WITHOUT dynamic shift to avoid cumulative drift.
+    const prevDyn = timerContainerEl.style.getPropertyValue('--timerDynamicShift');
+    timerContainerEl.style.setProperty('--timerDynamicShift', '0px');
     const timerRect = timerContainerEl.getBoundingClientRect();
+    // Restore immediately (no paint until next frame).
+    if (prevDyn) timerContainerEl.style.setProperty('--timerDynamicShift', prevDyn);
+    else timerContainerEl.style.removeProperty('--timerDynamicShift');
     const timerHalf = timerRect.height / 2;
 
-    const isMobile = window.innerWidth < 768;
-    const gap = isMobile ? 10 : 14;
+    const gap = window.innerWidth < 768 ? 10 : 14; // breathing room between scramble box and timer block
     const minCenterY = scrambleRect.bottom + gap + timerHalf;
 
     // Target center is viewport center, but never collide with scramble area
     let targetCenterY = Math.max(viewportCenterY, minCenterY);
 
-    // Keep within viewport bounds
-    const margin = isMobile ? 14 : 18;
-    const minAllowed = margin + timerHalf;
-    const maxAllowed = window.innerHeight - margin - timerHalf;
-    targetCenterY = Math.max(minAllowed, Math.min(maxAllowed, targetCenterY));
+    // Prevent pushing past bottom (keep at least a small margin)
+    const bottomMargin = (window.innerWidth < 768 ? 18 : 22);
+    const maxCenterY = window.innerHeight - bottomMargin - timerHalf;
+    targetCenterY = Math.min(targetCenterY, maxCenterY);
 
     const currentCenterY = timerRect.top + timerHalf;
+    let dy = Math.round(targetCenterY - currentCenterY);
 
-    // Compute delta from current position, then apply it to the dynamic shift.
-    // This avoids clobbering the CSS base shift (vh) and prevents drift/rocket behavior.
-    const delta = targetCenterY - currentCenterY;
-    let desiredDynamic = __currentTimerDynamicShift + delta;
+    // Hysteresis: ignore tiny oscillations and reduce shaking
+    if (Math.abs(dy - __lastTimerShiftPx) < 3) dy = __lastTimerShiftPx;
+    if (Math.abs(dy) < 2) dy = 0;
 
-    // Round for stability
-    desiredDynamic = Math.round(desiredDynamic);
-
-    // Jitter guard: ignore tiny oscillations (especially during scramble diagram swaps)
-    if (Math.abs(desiredDynamic - __lastTimerDy) < 2) desiredDynamic = __lastTimerDy;
-    if (Math.abs(desiredDynamic) < 1) desiredDynamic = 0;
-
-    // Transition policy:
-    // - While scramble is generating/loading, keep updates instant to avoid shaking.
-    // - Otherwise allow a short ease for polish.
     if (__suppressTimerTransition) {
         timerContainerEl.style.transition = 'none';
     } else {
         timerContainerEl.style.transition = 'transform 160ms ease';
     }
-
-    timerContainerEl.style.setProperty('--timerDynamicShift', `${desiredDynamic}px`);
-    __currentTimerDynamicShift = desiredDynamic;
-    __lastTimerDy = desiredDynamic;
+    timerContainerEl.style.setProperty('--timerDynamicShift', `${dy}px`);
+    __lastTimerShiftPx = dy;
 }
+
 ;
 const configs = {
     '333': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'standard' },
@@ -669,11 +646,6 @@ window.switchMobileTab = (tab) => {
     }
 };
 // Ensure desktop layout on resize
-window.addEventListener('load', () => {
-    // Ensure timer/scramble layout is correct on first paint (especially on mobile)
-    scheduleLayout('init');
-});
-
 window.addEventListener('resize', () => {
     if (window.innerWidth >= 768) {
         // Desktop: Show both
@@ -1491,15 +1463,8 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         clearScrambleDiagram();
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
-    }
+    }    __lockTimerReposition = !!isLoading;
     __suppressTimerTransition = !!isLoading;
-    // Freeze timer position during scramble generation/loading to prevent jitter.
-    if (isLoading) {
-        __timerLockActive = true;
-        __lockedTimerDynamicShift = __currentTimerDynamicShift;
-    } else {
-        __timerLockActive = false;
-    }
     scheduleLayout(isLoading ? 'scramble-loading' : 'scramble-ready');
 }
 
@@ -1555,8 +1520,8 @@ async function generateScramble() {
             updateScrambleDiagram();
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
-            scheduleLayout('scramble-ready');
             return;
+            scheduleLayout('scramble-ready');
         } catch (err) {
             if (reqId !== scrambleReqId) return;
             console.warn('[CubeTimer] cubing.js scramble failed. Falling back to internal generator.', err);
