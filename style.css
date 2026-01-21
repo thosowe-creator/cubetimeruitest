@@ -83,7 +83,24 @@ body {
   .scramble-skeleton { width: 240px; height: 150px; }
   #toolContainer { min-height: 150px !important; }
   .timer-display { font-size: clamp(4.7rem, 17vw, 11rem); }
+
+  /* Settings footer compact (small height) */
+  #settingsModal { max-height: calc(100dvh - 1rem); }
+  #settingsModal .settings-scroll {
+    padding-bottom: calc(3.25rem + env(safe-area-inset-bottom));
+  }
+  #settingsModal .settings-footer {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  #settingsModal .settings-footer button {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    font-size: 0.875rem !important;
+  }
+
 }
+
 
 @media (max-height: 620px) {
   .scramble-bottom-area { height: 120px; }
@@ -460,7 +477,20 @@ body.no-scroll { overflow: hidden; }
   #scrambleDiagramSkeleton { display: none !important; }
   #scrambleDiagram { display: none !important; }
   .timer-display { font-size: clamp(3.4rem, 14vmin, 10.5rem); }
+
+  /* Settings footer extra-compact (very small height) */
+  #settingsModal { max-height: calc(100dvh - 0.5rem); }
+  #settingsModal .settings-scroll {
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+  }
+  #settingsModal .settings-footer button {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    font-size: 0.85rem !important;
+  }
+
 }
+
 
 @media (max-height: 560px) {
   :root {
