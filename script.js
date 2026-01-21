@@ -633,8 +633,49 @@ window.switchMobileTab = (tab) => {
         
         // Refresh graph if tool is active
         if(activeTool === 'graph') renderHistoryGraph();
+
+        // Clamp visible history height on mobile (2 items)
+        setTimeout(applyMobileHistoryListClamp, 0);
     }
 };
+
+
+// --- Mobile History: show only ~2 items then scroll (height based on actual rendered items) ---
+function applyMobileHistoryListClamp() {
+    try {
+        if (!historyList) return;
+
+        const isMobile = window.innerWidth < 768;
+        if (!isMobile) {
+            historyList.style.removeProperty('--mobHistoryListMaxH');
+            return;
+        }
+
+        // Only measure when the list is actually visible (e.g., History tab active)
+        if (historyList.offsetParent === null) return;
+
+        const items = Array.from(historyList.children).filter(el => el && el.nodeType === 1);
+        if (items.length === 0) {
+            historyList.style.setProperty('--mobHistoryListMaxH', '0px');
+            return;
+        }
+
+        const listRect = historyList.getBoundingClientRect();
+        if (!listRect || listRect.height === 0) return;
+
+        const cs = getComputedStyle(historyList);
+        const padB = parseFloat(cs.paddingBottom) || 0;
+
+        const idx = Math.min(1, items.length - 1); // 0 => 1 item, 1 => 2 items
+        const r = items[idx].getBoundingClientRect();
+        let h = (r.bottom - listRect.top) + padB;
+
+        // Sane minimum so it never collapses to an unusable sliver
+        h = Math.max(96, Math.ceil(h));
+
+        historyList.style.setProperty('--mobHistoryListMaxH', `${h}px`);
+    } catch (_) {}
+}
 // Ensure desktop layout on resize
 window.addEventListener('resize', () => {
     if (window.innerWidth >= 768) {
@@ -651,6 +692,7 @@ window.addEventListener('resize', () => {
         }
     }
     scheduleLayout('resize');
+    setTimeout(applyMobileHistoryListClamp, 0);
 });
 // --- Update Log / Known Issues ---
 function renderUpdateLog(latestOnly = true) {
@@ -794,6 +836,9 @@ function toggleDarkMode(checkbox) {
     document.documentElement.classList.toggle('dark', isDark);
     saveData();
     if(activeTool === 'graph') renderHistoryGraph();
+
+        // Clamp visible history height on mobile (2 items)
+        setTimeout(applyMobileHistoryListClamp, 0);
 }
 // --- Wake Lock ---
 async function requestWakeLock() {
@@ -1868,6 +1913,9 @@ function updateUI() {
             </div>
         </div>
     `).join('') || '<div class="text-center py-10 text-slate-300 text-[11px] italic">No solves yet</div>';
+
+    requestAnimationFrame(applyMobileHistoryListClamp);
+
 
     solveCountEl.innerText = filtered.length;
 
