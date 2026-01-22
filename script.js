@@ -1535,24 +1535,35 @@ async function generateScramble() {
         }
         currentScramble = res.join("\n");
     } else if (currentEvent === 'clock') {
+        // WCA-style Clock scramble formatting for scramble-display:
+        // Start with a pin state token (typically "UR DR"), then dial turns in the form "UR3+" (number then sign),
+        // then "y2", then back-side turns, and end with a pin state token.
+        const formatDial = (dial) => {
+            // Clock dial turns are typically expressed as 0–6 with a +/- direction.
+            const n = Math.floor(Math.random() * 7); // 0..6
+            const sign = (Math.random() < 0.5) ? '+' : '-';
+            return `${dial}${n}${sign}`;
+        };
+
+        // Standard starting pin state used in WCA scrambles.
+        res.push("UR DR");
+
         const dials = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
-        dials.forEach(d => {
-            const v = Math.floor(Math.random() * 12) - 5;
-            res.push(`${d}${v >= 0 ? '+' : ''}${v}`);
-        });
+        dials.forEach(d => res.push(formatDial(d)));
+
         res.push("y2");
+
         const dials2 = ["U", "R", "D", "L", "ALL"];
-        dials2.forEach(d => {
-            const v = Math.floor(Math.random() * 12) - 5;
-            res.push(`${d}${v >= 0 ? '+' : ''}${v}`);
-        });
+        dials2.forEach(d => res.push(formatDial(d)));
+
+        // End with an explicit pin state token (must not be empty).
         let pins = [];
         ["UR", "DR", "DL", "UL"].forEach(p => { if (Math.random() < 0.5) pins.push(p); });
-        // Ensure a valid pin pattern token exists (scramble-display expects it).
-        if (!pins.length) pins.push(["UR","DR","DL","UL"][Math.floor(Math.random()*4)]);
+        if (!pins.length) pins.push(["UR", "DR", "DL", "UL"][Math.floor(Math.random() * 4)]);
         res.push(pins.join(" "));
+
         currentScramble = res.join(" ");
-    } else if (currentEvent === 'sq1') {
+    } else if (currentEvent === 'sq1') { {
         // NOTE: Internal SQ1 generator is kept only as a fallback.
         let topCuts = [true, false, true, true, false, true, true, false, true, true, false, true];
         let botCuts = [true, false, true, true, false, true, true, false, true, true, false, true];
