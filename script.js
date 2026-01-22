@@ -1503,7 +1503,7 @@ async function generateScramble() {
     setScrambleLoadingState(true, 'Loading scramble…', false);
     // Prefer cubing.js (official random-state scrambles) when available.
     const cubingFn = window.__randomScrambleForEvent;
-    if (typeof cubingFn === 'function' && currentEvent !== '666') {
+    if (typeof cubingFn === 'function' && currentEvent !== '666' && currentEvent !== 'clock') {
         try {
             const alg = await cubingFn(mapEventIdForCubing(currentEvent));
             if (reqId !== scrambleReqId) return; // stale
@@ -1513,8 +1513,8 @@ async function generateScramble() {
             updateScrambleDiagram();
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
-            return;
             scheduleLayout('scramble-ready');
+            return;
         } catch (err) {
             if (reqId !== scrambleReqId) return;
             console.warn('[CubeTimer] cubing.js scramble failed. Falling back to internal generator.', err);
@@ -1548,7 +1548,9 @@ async function generateScramble() {
         });
         let pins = [];
         ["UR", "DR", "DL", "UL"].forEach(p => { if (Math.random() < 0.5) pins.push(p); });
-        if (pins.length) res.push(pins.join(" "));
+        // Ensure a valid pin pattern token exists (scramble-display expects it).
+        if (!pins.length) pins.push(["UR","DR","DL","UL"][Math.floor(Math.random()*4)]);
+        res.push(pins.join(" "));
         currentScramble = res.join(" ");
     } else if (currentEvent === 'sq1') {
         // NOTE: Internal SQ1 generator is kept only as a fallback.
