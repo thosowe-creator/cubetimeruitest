@@ -341,7 +341,7 @@ const APP_VERSION = '2';
 const RELEASE_NOTES = [
   {
     version: '2',
-    date: '2026.01.19',
+    date: '2026.01.22',
     items: {
       ko: [
         'PC, 모바일 UI/UX 개편',
@@ -392,7 +392,7 @@ const KNOWN_ISSUES = [
       en: 'Mobile UI is still not fully mobile-friendly; improvements are planned.',
     },
     status: 'planning',
-    since: '2026.01.19'
+    since: '2026.01.22'
   }
 ];
 // Lazy Loading Vars
