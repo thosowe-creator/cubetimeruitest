@@ -1535,30 +1535,29 @@ async function generateScramble() {
         }
         currentScramble = res.join("\n");
     } else if (currentEvent === 'clock') {
-        // Internal Clock generator (WCA-style token format for diagram parsers)
-        // Dial tokens: <DIAL><abs><sign> e.g. UR3-, DR5+, ALL1+
+        // WCA-style Clock scramble formatting:
+        // - First two tokens should be UR... DR...
+        // - Use dial format like UR3+ / DR4- (number then sign)
+        // - Include y2 and end with an ALL... token (no trailing pin-pattern tokens)
         const dialOrderFront = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
         const dialOrderBack  = ["U", "R", "D", "L", "ALL"];
-        const randTurn = () => {
-            // Common range used in scrambles: -5..+6 excluding 0
-            const choices = [-5,-4,-3,-2,-1,1,2,3,4,5,6];
-            return choices[Math.floor(Math.random() * choices.length)];
+
+        const fmt = (dial, v) => {
+            const abs = Math.abs(v);
+            return `${dial}${abs}${v >= 0 ? '+' : '-'}`;
         };
-        const fmt = (dial, v) => `${dial}${Math.abs(v)}${v > 0 ? '+' : '-'}`;
 
-        // Front
-        dialOrderFront.forEach(d => res.push(fmt(d, randTurn())));
-        // Flip
+        dialOrderFront.forEach((dial) => {
+            const v = Math.floor(Math.random() * 12) - 5; // -5..+6
+            res.push(fmt(dial, v));
+        });
+
         res.push("y2");
-        // Back
-        dialOrderBack.forEach(d => res.push(fmt(d, randTurn())));
 
-        // Pin pattern at the end (space-separated). Many tools accept empty,
-        // but adding at least one keeps parsing robust across renderers.
-        const pins = [];
-        ["UR", "DR", "DL", "UL"].forEach(p => { if (Math.random() < 0.5) pins.push(p); });
-        if (pins.length === 0) pins.push("UR", "DR");
-        res.push(pins.join(" "));
+        dialOrderBack.forEach((dial) => {
+            const v = Math.floor(Math.random() * 12) - 5; // -5..+6
+            res.push(fmt(dial, v));
+        });
 
         currentScramble = res.join(" ");
     } else if (currentEvent === 'sq1') {
