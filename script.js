@@ -341,7 +341,7 @@ const APP_VERSION = '2';
 const RELEASE_NOTES = [
   {
     version: '2',
-    date: '2026.01.21',
+    date: '2026.01.19',
     items: {
       ko: [
         'PC, 모바일 UI/UX 개편',
@@ -388,11 +388,11 @@ const KNOWN_ISSUES = [
   {
     id: 'DL-001',
     title: {
-      ko: 'UI의 사소한 문제점들을 인지하고있으며 수정할 계획입니다.',
-      en: 'Some minor UI issues have been identified and will be improved in future updates.',
+      ko: '모바일 UI가 여전히 모바일친화적이지 않아 수정 계획중입니다.',
+      en: 'Mobile UI is still not fully mobile-friendly; improvements are planned.',
     },
     status: 'planning',
-    since: '2026.01.21'
+    since: '2026.01.19'
   }
 ];
 // Lazy Loading Vars
@@ -1473,7 +1473,7 @@ window.retryScramble = () => {
 async function generate3bldScrambleText() {
     const conf = configs['333bf'];
     const cubingFn = window.__randomScrambleForEvent;
-    if (typeof cubingFn === 'function') {
+    if (currentEvent !== '666' && typeof cubingFn === 'function') {
         try {
             const alg = await cubingFn('333bf');
             return alg.toString();
