@@ -1503,7 +1503,7 @@ async function generateScramble() {
     setScrambleLoadingState(true, 'Loading scramble…', false);
     // Prefer cubing.js (official random-state scrambles) when available.
     const cubingFn = window.__randomScrambleForEvent;
-    if (typeof cubingFn === 'function' && currentEvent !== '666') {
+    if (typeof cubingFn === 'function' && currentEvent !== '666' && currentEvent !== 'clock') {
         try {
             const alg = await cubingFn(mapEventIdForCubing(currentEvent));
             if (reqId !== scrambleReqId) return; // stale
