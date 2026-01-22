@@ -1503,7 +1503,7 @@ async function generateScramble() {
     setScrambleLoadingState(true, 'Loading scramble…', false);
     // Prefer cubing.js (official random-state scrambles) when available.
     const cubingFn = window.__randomScrambleForEvent;
-    if (typeof cubingFn === 'function' && currentEvent !== '666' && currentEvent !== 'clock') {
+    if (typeof cubingFn === 'function' && currentEvent !== '666') {
         try {
             const alg = await cubingFn(mapEventIdForCubing(currentEvent));
             if (reqId !== scrambleReqId) return; // stale
@@ -1513,8 +1513,8 @@ async function generateScramble() {
             updateScrambleDiagram();
             resetPenalty();
             if (activeTool === 'graph') renderHistoryGraph();
-            scheduleLayout('scramble-ready');
             return;
+            scheduleLayout('scramble-ready');
         } catch (err) {
             if (reqId !== scrambleReqId) return;
             console.warn('[CubeTimer] cubing.js scramble failed. Falling back to internal generator.', err);
@@ -1535,35 +1535,33 @@ async function generateScramble() {
         }
         currentScramble = res.join("\n");
     } else if (currentEvent === 'clock') {
-        // WCA-style Clock scramble formatting for scramble-display:
-        // Start with a pin state token (typically "UR DR"), then dial turns in the form "UR3+" (number then sign),
-        // then "y2", then back-side turns, and end with a pin state token.
-        const formatDial = (dial) => {
-            // Clock dial turns are typically expressed as 0–6 with a +/- direction.
-            const n = Math.floor(Math.random() * 7); // 0..6
-            const sign = (Math.random() < 0.5) ? '+' : '-';
-            return `${dial}${n}${sign}`;
+        // Internal Clock generator (WCA-style token format for diagram parsers)
+        // Dial tokens: <DIAL><abs><sign> e.g. UR3-, DR5+, ALL1+
+        const dialOrderFront = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
+        const dialOrderBack  = ["U", "R", "D", "L", "ALL"];
+        const randTurn = () => {
+            // Common range used in scrambles: -5..+6 excluding 0
+            const choices = [-5,-4,-3,-2,-1,1,2,3,4,5,6];
+            return choices[Math.floor(Math.random() * choices.length)];
         };
+        const fmt = (dial, v) => `${dial}${Math.abs(v)}${v > 0 ? '+' : '-'}`;
 
-        // Standard starting pin state used in WCA scrambles.
-        res.push("UR DR");
-
-        const dials = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
-        dials.forEach(d => res.push(formatDial(d)));
-
+        // Front
+        dialOrderFront.forEach(d => res.push(fmt(d, randTurn())));
+        // Flip
         res.push("y2");
+        // Back
+        dialOrderBack.forEach(d => res.push(fmt(d, randTurn())));
 
-        const dials2 = ["U", "R", "D", "L", "ALL"];
-        dials2.forEach(d => res.push(formatDial(d)));
-
-        // End with an explicit pin state token (must not be empty).
-        let pins = [];
+        // Pin pattern at the end (space-separated). Many tools accept empty,
+        // but adding at least one keeps parsing robust across renderers.
+        const pins = [];
         ["UR", "DR", "DL", "UL"].forEach(p => { if (Math.random() < 0.5) pins.push(p); });
-        if (!pins.length) pins.push(["UR", "DR", "DL", "UL"][Math.floor(Math.random() * 4)]);
+        if (pins.length === 0) pins.push("UR", "DR");
         res.push(pins.join(" "));
 
         currentScramble = res.join(" ");
-    } else if (currentEvent === 'sq1') { {
+    } else if (currentEvent === 'sq1') {
         // NOTE: Internal SQ1 generator is kept only as a fallback.
         let topCuts = [true, false, true, true, false, true, true, false, true, true, false, true];
         let botCuts = [true, false, true, true, false, true, true, false, true, true, false, true];
