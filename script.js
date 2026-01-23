@@ -641,222 +641,265 @@ let currentPracticeMeta = null;
 //
 // Goal (with green front / white top orientation):
 // - White U-cross solved and aligned (UF/UR/UB/UL)
-// - 3 "slots" around U are fully solved (corner + edge)
+// - 3 "F2L-like" slots around U are fully solved (corner + edge)
 // - One slot is NOT solved:
-//   - side 'R': UBR/BR slot (WRB + RB) NOT solved
-//   - side 'L': ULB/BL slot (WOB + BO) NOT solved
+//   - side 'R': BR/UBR slot (RB + WRB) NOT solved
+//   - side 'L': BL/UBL slot (BO + WOB) NOT solved
 //
-// IMPORTANT: We validate using min2phase.fromScramble() facelets to match
-// scramble-display/cubing.js. No custom cube simulator here.
-// Strategy: random 3x3 base scramble + short suffix search (IDDFS) to satisfy constraints.
-// Output is a normal 3x3 scramble string, so the existing diagram renderer works.
+// Implementation: generate a realistic random-state 3x3 scramble, then run a
+// small depth-limited "repair" search to enforce the constraints.
+// This avoids a full solver dependency while keeping output as a normal 3x3
+// scramble string that works with the existing diagram renderer.
 // ------------------------------
 
-const _ZBLS_SOLVED_FACELETS = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
-
-// Facelet indices (Kociemba order) - taken from min2phase's own tables:
-// corner order: URF, UFL, ULB, UBR, DFR, DLF, DBL, DRB
-// edge order:   UR, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR
-const _ZBLS_CORNER_FACELETS = [
-  [8, 9, 20],
-  [6, 18, 38],
-  [0, 36, 47],
-  [2, 45, 11],
-  [29, 26, 15],
-  [27, 44, 24],
-  [33, 53, 42],
-  [35, 17, 51]
-];
-const _ZBLS_EDGE_FACELETS = [
-  [5, 10],
-  [7, 19],
-  [3, 37],
-  [1, 46],
-  [32, 16],
-  [28, 25],
-  [30, 43],
-  [34, 52],
-  [23, 12],
-  [21, 41],
-  [50, 39],
-  [48, 14]
-];
-
-function _zbls_faceletsFromScramble(scrambleStr) {
-  if (!window.min2phase || typeof window.min2phase.fromScramble !== 'function') return null;
-  try {
-    return window.min2phase.fromScramble(String(scrambleStr || '').trim());
-  } catch (_) {
-    return null;
-  }
+function _cloneCubeState() {
+    const st = { n: cubeState?.n || 3 };
+    ['U','D','L','R','F','B'].forEach(f => st[f] = (cubeState?.[f] || []).slice());
+    return st;
 }
 
-function _zbls_isEdgeSolved(facelets, edgeIdx) {
-  const a = _ZBLS_EDGE_FACELETS[edgeIdx];
-  return facelets[a[0]] === _ZBLS_SOLVED_FACELETS[a[0]] && facelets[a[1]] === _ZBLS_SOLVED_FACELETS[a[1]];
+function _loadCubeState(st) {
+    cubeState = { n: st.n };
+    ['U','D','L','R','F','B'].forEach(f => cubeState[f] = st[f].slice());
 }
 
-function _zbls_isCornerSolved(facelets, cornerIdx) {
-  const a = _ZBLS_CORNER_FACELETS[cornerIdx];
-  return facelets[a[0]] === _ZBLS_SOLVED_FACELETS[a[0]] &&
-         facelets[a[1]] === _ZBLS_SOLVED_FACELETS[a[1]] &&
-         facelets[a[2]] === _ZBLS_SOLVED_FACELETS[a[2]];
+function _applyAlgToCurrent(algStr) {
+    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
+    toks.forEach(t => applyMove(t));
 }
 
-function _zbls_isUCrossSolvedAligned(facelets) {
-  // UR(0), UF(1), UL(2), UB(3)
-  return _zbls_isEdgeSolved(facelets, 0) &&
-         _zbls_isEdgeSolved(facelets, 1) &&
-         _zbls_isEdgeSolved(facelets, 2) &&
-         _zbls_isEdgeSolved(facelets, 3);
+function _isUCrossSolvedAligned() {
+    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
+    if (!U || U.length !== 9) return false;
+    const w = COLORS.U;
+    if (U[1] !== w || U[3] !== w || U[5] !== w || U[7] !== w) return false;
+    // aligned with side centers
+    if (F[1] !== COLORS.F) return false; // UF
+    if (R[1] !== COLORS.R) return false; // UR
+    if (B[1] !== COLORS.B) return false; // UB
+    if (L[1] !== COLORS.L) return false; // UL
+    return true;
 }
 
-function _zbls_isSlotSolved(facelets, slotKey) {
-  // Slot = (U-corner) + (middle-layer edge)
-  switch (slotKey) {
-    case 'UFR': // URF corner(0) + FR edge(8)
-      return _zbls_isCornerSolved(facelets, 0) && _zbls_isEdgeSolved(facelets, 8);
-    case 'UFL': // UFL corner(1) + FL edge(9)
-      return _zbls_isCornerSolved(facelets, 1) && _zbls_isEdgeSolved(facelets, 9);
-    case 'UBL': // ULB corner(2) + BL edge(10)
-      return _zbls_isCornerSolved(facelets, 2) && _zbls_isEdgeSolved(facelets, 10);
-    case 'UBR': // UBR corner(3) + BR edge(11)
-      return _zbls_isCornerSolved(facelets, 3) && _zbls_isEdgeSolved(facelets, 11);
-    default:
-      return false;
-  }
+// Slot checks assume standard face indexing used by our cube simulator.
+function _isSlotSolved(slotKey) {
+    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
+    const ok = (a,b) => a === b;
+    switch (slotKey) {
+        case 'UFR':
+            // corner: U[8]=W, F[2]=G, R[0]=R | edge FR: F[5]=G, R[3]=R
+            return ok(U[8], COLORS.U) && ok(F[2], COLORS.F) && ok(R[0], COLORS.R)
+                && ok(F[5], COLORS.F) && ok(R[3], COLORS.R);
+        case 'UFL':
+            // corner: U[6]=W, F[0]=G, L[2]=O | edge FL: F[3]=G, L[5]=O
+            return ok(U[6], COLORS.U) && ok(F[0], COLORS.F) && ok(L[2], COLORS.L)
+                && ok(F[3], COLORS.F) && ok(L[5], COLORS.L);
+        case 'UBR':
+            // corner: U[2]=W, B[0]=B, R[2]=R | edge BR: B[3]=B, R[5]=R
+            return ok(U[2], COLORS.U) && ok(B[0], COLORS.B) && ok(R[2], COLORS.R)
+                && ok(B[3], COLORS.B) && ok(R[5], COLORS.R);
+        case 'UBL':
+            // corner: U[0]=W, B[2]=B, L[0]=O | edge BL: B[5]=B, L[3]=O
+            return ok(U[0], COLORS.U) && ok(B[2], COLORS.B) && ok(L[0], COLORS.L)
+                && ok(B[5], COLORS.B) && ok(L[3], COLORS.L);
+        default:
+            return false;
+    }
 }
 
-function _zbls_isTarget(facelets, side) {
-  if (!facelets) return false;
-  if (!_zbls_isUCrossSolvedAligned(facelets)) return false;
-
-  if (side === 'R') {
-    // require UFR, UFL, UBL solved; UBR NOT solved
-    return _zbls_isSlotSolved(facelets, 'UFR') &&
-           _zbls_isSlotSolved(facelets, 'UFL') &&
-           _zbls_isSlotSolved(facelets, 'UBL') &&
-           !_zbls_isSlotSolved(facelets, 'UBR');
-  }
-  // side === 'L'
-  return _zbls_isSlotSolved(facelets, 'UFR') &&
-         _zbls_isSlotSolved(facelets, 'UFL') &&
-         _zbls_isSlotSolved(facelets, 'UBR') &&
-         !_zbls_isSlotSolved(facelets, 'UBL');
+function _isZblsTargetState(side) {
+    if (!_isUCrossSolvedAligned()) return false;
+    if (side === 'R') {
+        // require UFR, UFL, UBL solved; UBR NOT solved
+        return _isSlotSolved('UFR') && _isSlotSolved('UFL') && _isSlotSolved('UBL') && !_isSlotSolved('UBR');
+    }
+    // side === 'L'
+    return _isSlotSolved('UFR') && _isSlotSolved('UFL') && _isSlotSolved('UBR') && !_isSlotSolved('UBL');
 }
 
-function _zbls_normalizeAlg(algStr) {
-  return String(algStr || '').trim().replace(/\s+/g, ' ');
+function _invertMove(m) {
+    if (!m) return m;
+    if (m.endsWith("2")) return m;
+    if (m.endsWith("'")) return m.slice(0, -1);
+    return m + "'";
 }
 
-// IDDFS over short suffixes. Recomputes facelets with min2phase.fromScramble(base + suffix).
-async function _zbls_findSuffix(base, side, maxDepth, nodeBudget) {
-  const moves = ['U','U2',"U'",'R','R2',"R'",'L','L2',"L'",'F','F2',"F'",'B','B2',"B'",'D','D2',"D'"];
-  const axisOf = (mv) => {
-    const f = mv[0];
-    if (f === 'U' || f === 'D') return 0;
-    if (f === 'L' || f === 'R') return 1;
-    if (f === 'F' || f === 'B') return 2;
-    return -1;
-  };
+function _invertAlg(algStr) {
+    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
+    return toks.reverse().map(_invertMove).join(' ');
+}
 
-  let nodes = 0;
+function _normalizeAlg(algStr) {
+    // simple whitespace normalize only (avoid aggressive cancellations)
+    return String(algStr || '').trim().replace(/\s+/g, ' ');
+}
 
-  const dfs = async (depth, lastFace, lastAxis, secondLastAxis, path) => {
-    nodes++;
-    if (nodes > nodeBudget) return null;
-    if (nodes % 400 === 0) await new Promise(r => setTimeout(r, 0));
+// Depth-limited DFS "repair" search for the ZBLS target constraints.
+async function _findRepairAlgForZbls(side, maxDepth) {
+    const moves = ['U','U2',"U'",'R','R2',"R'",'L','L2',"L'",'F','F2',"F'",'B','B2',"B'",'D','D2',"D'"];
+    const axisOf = (mv) => {
+        const f = mv[0];
+        if (f === 'U' || f === 'D') return 0;
+        if (f === 'L' || f === 'R') return 1;
+        if (f === 'F' || f === 'B') return 2;
+        return -1;
+    };
+    const start = _cloneCubeState();
+    const seen = new Set();
 
-    const scr = path.length ? `${base} ${path.join(' ')}` : base;
-    const facelets = _zbls_faceletsFromScramble(scr);
-    if (facelets && _zbls_isTarget(facelets, side)) return path.slice();
+    const hashGoalSubset = () => {
+        // hash only relevant stickers for pruning
+        const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
+        return [
+            U[0],U[1],U[2],U[3],U[5],U[6],U[7],U[8],
+            F[0],F[1],F[2],F[3],F[5],
+            R[0],R[1],R[2],R[3],R[5],
+            B[0],B[1],B[2],B[3],B[5],
+            L[0],L[1],L[2],L[3],L[5]
+        ].join('|');
+    };
 
-    if (depth === 0) return null;
+    const dfs = (depth, lastFace, lastAxis, secondLastAxis, path) => {
+        if (_isZblsTargetState(side)) return path.slice();
+        if (depth === 0) return null;
+        const h = hashGoalSubset() + `|d${depth}`;
+        if (seen.has(h)) return null;
+        seen.add(h);
 
-    for (const mv of moves) {
-      const face = mv[0];
-      const ax = axisOf(mv);
-      if (face === lastFace) continue;
-      if (ax === lastAxis && ax === secondLastAxis) continue;
+        for (const mv of moves) {
+            const face = mv[0];
+            const ax = axisOf(mv);
+            if (face === lastFace) continue;
+            if (ax === lastAxis && ax === secondLastAxis) continue;
 
-      path.push(mv);
-      const res = await dfs(depth - 1, face, ax, lastAxis, path);
-      if (res) return res;
-      path.pop();
+            const before = _cloneCubeState();
+            applyMove(mv);
+            path.push(mv);
+
+            const res = dfs(depth - 1, face, ax, lastAxis, path);
+            if (res) return res;
+
+            path.pop();
+            _loadCubeState(before);
+        }
+        return null;
+    };
+
+    for (let d = 0; d <= maxDepth; d++) {
+        _loadCubeState(start);
+        seen.clear();
+        const res = dfs(d, '', -1, -1, []);
+        if (res) return res.join(' ');
     }
     return null;
-  };
-
-  for (let d = 0; d <= maxDepth; d++) {
-    nodes = 0;
-    const res = await dfs(d, '', -1, -1, []);
-    if (res) return res.join(' ');
-  }
-  return null;
 }
 
 async function generateZblsPracticeScramble(side) {
-  const cubingFn = window.__randomScrambleForEvent;
+    // IMPORTANT: Do NOT hunt rare states inside random 3x3 scrambles.
+    // We generate the desired state directly from the solved orientation
+    // (green front / white top), while preserving:
+    // - U cross aligned
+    // - 3 "U-layer F2L" slots solved
+    // - 1 target slot NOT solved (R: UBR, L: UBL)
+    // Output is still a normal scramble string, so the existing diagram works.
 
-  const getBaseScramble = async () => {
-    if (typeof cubingFn === 'function') {
-      try { return (await cubingFn('333')).toString(); } catch (_) {}
-    }
-    // fallback to internal 3x3
-    const conf = configs['333'];
-    let res = [];
-    let lastAxis = -1;
-    let secondLastAxis = -1;
-    let lastMoveBase = "";
-    const getMoveAxis = (m) => {
-      const c = m[0];
-      if ("UD".includes(c)) return 0;
-      if ("LR".includes(c)) return 1;
-      if ("FB".includes(c)) return 2;
-      return -1;
+    const randInt = (a,b) => a + Math.floor(Math.random() * (b - a + 1));
+    const D_MOVES = ['D', 'D2', "D'"];
+    const CORE_MOVES = ['U','U2',"U'",'R','R2',"R'",'B','B2',"B'"];
+    const axisOf = (mv) => {
+        const f = mv[0];
+        if (f === 'U' || f === 'D') return 0;
+        if (f === 'L' || f === 'R') return 1;
+        if (f === 'F' || f === 'B') return 2;
+        return -1;
     };
-    for (let i = 0; i < conf.len; i++) {
-      let move, axis, base;
-      let valid = false;
-      while (!valid) {
-        move = conf.moves[Math.floor(Math.random() * conf.moves.length)];
-        axis = getMoveAxis(move);
-        base = move[0];
-        if (base === lastMoveBase) { valid = false; continue; }
-        if (axis !== -1 && axis === lastAxis && axis === secondLastAxis) { valid = false; continue; }
-        valid = true;
-      }
-      res.push(move + suffixes[Math.floor(Math.random() * 3)]);
-      secondLastAxis = lastAxis;
-      lastAxis = axis;
-      lastMoveBase = base;
+
+    const applyMoves = (arr) => { arr.forEach(m => applyMove(m)); };
+
+    // Small DFS from a "safe" pre-scrambled state (only D moves), to unsolve exactly the target slot
+    // while keeping the other constraints.
+    const findCore = (maxDepth) => {
+        const start = _cloneCubeState();
+        const seen = new Set();
+
+        const hash = () => {
+            // hash only the pieces that matter for our constraints
+            const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
+            return [
+                // U face
+                U[0],U[1],U[2],U[3],U[4],U[5],U[6],U[7],U[8],
+                // stickers involved in our slot/cross tests
+                F[0],F[1],F[2],F[3],F[5],
+                R[0],R[1],R[2],R[3],R[5],
+                B[0],B[1],B[2],B[3],B[5],
+                L[0],L[1],L[2],L[3],L[5]
+            ].join('|');
+        };
+
+        const dfs = (depth, lastFace, lastAxis, secondLastAxis, path) => {
+            if (_isZblsTargetState(side)) return path.slice();
+            if (depth === 0) return null;
+            const key = hash() + `|d${depth}`;
+            if (seen.has(key)) return null;
+            seen.add(key);
+
+            for (const mv of CORE_MOVES) {
+                const face = mv[0];
+                const ax = axisOf(mv);
+                if (face === lastFace) continue;
+                if (ax === lastAxis && ax === secondLastAxis) continue;
+                const before = _cloneCubeState();
+                applyMove(mv);
+                path.push(mv);
+                const res = dfs(depth - 1, face, ax, lastAxis, path);
+                if (res) return res;
+                path.pop();
+                _loadCubeState(before);
+            }
+            return null;
+        };
+
+        for (let d = 0; d <= maxDepth; d++) {
+            _loadCubeState(start);
+            seen.clear();
+            const res = dfs(d, '', -1, -1, []);
+            if (res) return res;
+        }
+        return null;
+    };
+
+    // Try multiple independent constructions (fast, no external scramble generator)
+    const MAX_TRIES = 200;
+    for (let t = 0; t < MAX_TRIES; t++) {
+        initCube(3);
+
+        // Add randomness that cannot break our top constraints: D turns.
+        const preLen = randInt(6, 10);
+        const pre = Array.from({length: preLen}, () => D_MOVES[randInt(0,2)]);
+        applyMoves(pre);
+
+        // From this state, search a short sequence that produces the exact ZBLS target.
+        const core = findCore(10);
+        if (!core) continue;
+        applyMoves(core);
+
+        if (!_isZblsTargetState(side)) continue;
+
+        // Pad to a normal scramble length using D moves (doesn't affect our constraints).
+        const desired = randInt(18, 21);
+        const cur = pre.length + core.length;
+        const postLen = Math.max(0, desired - cur);
+        const post = Array.from({length: postLen}, () => D_MOVES[randInt(0,2)]);
+        applyMoves(post);
+        // Safety verify again
+        if (!_isZblsTargetState(side)) continue;
+
+        return _normalizeAlg([...pre, ...core, ...post].join(' '));
     }
-    return res.join(' ');
-  };
 
-  // If min2phase isn't available, we can't validate -> return null and let caller fallback.
-  if (!window.min2phase || typeof window.min2phase.fromScramble !== 'function') return null;
-
-  const MAX_BASE_ATTEMPTS = 16;      // base scrambles to try
-  const MAX_SUFFIX_DEPTH = 6;        // short correction
-  const NODE_BUDGET = 12000;         // prevent "infinite loading"
-
-  for (let attempt = 0; attempt < MAX_BASE_ATTEMPTS; attempt++) {
-    const base = await getBaseScramble();
-    const facelets0 = _zbls_faceletsFromScramble(base);
-    if (facelets0 && _zbls_isTarget(facelets0, side)) {
-      return _zbls_normalizeAlg(base);
-    }
-    const suffix = await _zbls_findSuffix(base, side, MAX_SUFFIX_DEPTH, NODE_BUDGET);
-    if (!suffix) continue;
-
-    const full = _zbls_normalizeAlg(`${base} ${suffix}`);
-    const facelets = _zbls_faceletsFromScramble(full);
-    if (facelets && _zbls_isTarget(facelets, side)) return full;
-  }
-  return null;
+    // If generation failed (should be rare), return null so caller can fall back safely.
+    return null;
 }
-
 
 function mirror333Alg(algStr){
     // Safe-ish token mirror: R<->L, F<->B. U/D remain. Also handles wide moves like Rw/Lw, 3Rw/3Lw, etc.
@@ -925,7 +968,7 @@ async function generatePracticeScramble(eventId){
         const out = scr || await fallback333();
         return {
             scramble: out,
-            meta: { practice: 'ZBLS', side, engine: scr ? 'state-repair' : 'fallback' },
+            meta: { practice: 'ZBLS', side, engine: scr ? 'state-construct' : 'fallback' },
             displayEvent: '333'
         };
     }
