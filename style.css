@@ -419,6 +419,18 @@ body.no-scroll { overflow: hidden; }
   }
 }
 
+/* Practice label (e.g., ZBLS (L) / PLL) */
+.practice-label{
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(100, 116, 139, 0.9);
+}
+.dark .practice-label{
+  color: rgba(148, 163, 184, 0.9);
+}
+
 /* Mobile: keep some side padding (not zero) but make it wider than before */
 @media (max-width: 480px){
   :root{

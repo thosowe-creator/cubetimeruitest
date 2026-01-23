@@ -345,6 +345,13 @@
                                 <option value="555bf">5BLD</option>
                                 <option value="333mbf">Multi-BLD</option>
                             </optgroup>
+                            <optgroup label="Practice">
+                                <option value="prac_f2l">F2L</option>
+                                <option value="prac_oll">OLL</option>
+                                <option value="prac_pll">PLL</option>
+                                <option value="prac_zbls">ZBLS</option>
+                                <option value="prac_zbll">ZBLL</option>
+                            </optgroup>
                         </select>
                         <!-- (UX) 스크롤 선택 기능은 유지하되 안내 문구는 제거 -->
                     </div>
@@ -395,6 +402,9 @@
                                 <span id="scrambleLoadingText" class="text-[11px] font-bold text-slate-400">Loading scramble…</span>
                             </div>
                         </div>
+
+                        <!-- Practice label (only shown for Practice events) -->
+                        <div id="practiceLabel" class="hidden practice-label mb-2"></div>
 
                         <div id="scramble" class="scramble-text font-bold text-slate-600 dark:text-slate-300 whitespace-pre-wrap text-center leading-relaxed">Generating...</div>
 
