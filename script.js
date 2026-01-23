@@ -657,148 +657,6 @@ function mirror333Alg(algStr){
     return tokens.map(mapFace).join(' ');
 }
 
-
-
-// --- Practice: ZBLS (constraint-based, no case alg DB) ---
-// Goal (hold Green front / White up):
-// - White cross solved on U
-// - 3 F2L "top-layer" slots solved
-// - One slot (BR for R, BL for L) is NOT solved as a pair
-//
-// NOTE: This uses the existing facelet-based cube simulator (initCube/applyMove).
-// It generates a scramble via constrained random walk with rejection.
-
-function _invMove(m){
-    if (m.endsWith("2")) return m;         // R2 inverse is itself
-    if (m.endsWith("'")) return m.slice(0, -1);
-    return m + "'";
-}
-function _applyAlg(algStr){
-    const toks = String(algStr||'').trim().split(/\s+/).filter(Boolean);
-    for (const t of toks) applyMove(t);
-}
-function _isWhiteCrossSolvedOnU(){
-    if (!cubeState || cubeState.n !== 3) return false;
-    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-    // U cross whites
-    if (U[1] !== COLORS.U || U[3] !== COLORS.U || U[5] !== COLORS.U || U[7] !== COLORS.U) return false;
-    // Side colors match centers (Green front / White up orientation assumed)
-    if (F[1] !== COLORS.F) return false; // UF
-    if (R[1] !== COLORS.R) return false; // UR
-    if (B[1] !== COLORS.B) return false; // UB
-    if (L[1] !== COLORS.L) return false; // UL
-    return true;
-}
-
-// Slot check (top-layer F2L style with White on U)
-function _isSlotSolved(slotName){
-    // Returns true if the corner+edge for that slot are fully solved in-place.
-    // Facelet indices assume standard face orientation for each face.
-    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-    switch (slotName) {
-        case 'FR':
-            // Corner UFR: U[8]=W, F[2]=G, R[0]=R ; Edge FR: F[5]=G, R[3]=R
-            return (U[8]===COLORS.U && F[2]===COLORS.F && R[0]===COLORS.R && F[5]===COLORS.F && R[3]===COLORS.R);
-        case 'FL':
-            // Corner UFL: U[6]=W, F[0]=G, L[2]=O ; Edge FL: F[3]=G, L[5]=O
-            return (U[6]===COLORS.U && F[0]===COLORS.F && L[2]===COLORS.L && F[3]===COLORS.F && L[5]===COLORS.L);
-        case 'BR':
-            // Corner UBR: U[2]=W, B[0]=B, R[2]=R ; Edge BR: B[3]=B, R[5]=R
-            return (U[2]===COLORS.U && B[0]===COLORS.B && R[2]===COLORS.R && B[3]===COLORS.B && R[5]===COLORS.R);
-        case 'BL':
-            // Corner UBL: U[0]=W, B[2]=B, L[0]=O ; Edge BL: B[5]=B, L[3]=O
-            return (U[0]===COLORS.U && B[2]===COLORS.B && L[0]===COLORS.L && B[5]===COLORS.B && L[3]===COLORS.L);
-        default:
-            return false;
-    }
-}
-
-function _validateZblsState(side){
-    // side: 'R' means BR is the "empty slot"; 'L' means BL is empty slot.
-    if (!_isWhiteCrossSolvedOnU()) return false;
-    // 3 solved slots
-    if (side === 'R') {
-        if (!_isSlotSolved('FR') || !_isSlotSolved('FL') || !_isSlotSolved('BL')) return false;
-        // empty slot must NOT be fully solved
-        if (_isSlotSolved('BR')) return false;
-    } else {
-        if (!_isSlotSolved('FR') || !_isSlotSolved('FL') || !_isSlotSolved('BR')) return false;
-        if (_isSlotSolved('BL')) return false;
-    }
-    return true;
-}
-
-function _zblsBreakEmptySlotIfNeeded(side){
-    // Starting from solved, break the designated empty slot while trying not to destroy too much.
-    // We will allow a handful of random moves until the empty slot is not solved.
-    const empty = (side === 'R') ? 'BR' : 'BL';
-    const moves = ['U','U2',"U'", 'R','R2',"R'", 'L','L2',"L'", 'F','F2',"F'", 'B','B2',"B'", 'D','D2',"D'"];
-    let guard = 0;
-    while (_isSlotSolved(empty) && guard < 50) {
-        const mv = moves[Math.floor(Math.random()*moves.length)];
-        applyMove(mv);
-        guard++;
-    }
-    return !_isSlotSolved(empty);
-}
-
-function generateZblsPracticeScramble(side){
-    // Constrained random walk to produce a scramble string.
-    // Returns { scramble, ok }.
-    const MAX_RESTARTS = 60;
-    const TARGET_LEN = 20; // roughly 18-21
-    const moves = ['U','U2',"U'", 'R','R2',"R'", 'L','L2',"L'", 'F','F2',"F'", 'B','B2',"B'", 'D','D2',"D'"];
-
-    const getAxis = (m) => {
-        const f = m[0];
-        if (f === 'U' || f === 'D') return 0;
-        if (f === 'L' || f === 'R') return 1;
-        if (f === 'F' || f === 'B') return 2;
-        return -1;
-    };
-
-    for (let restart=0; restart<MAX_RESTARTS; restart++) {
-        initCube(3);
-
-        // Step 0: ensure empty slot is not solved
-        _zblsBreakEmptySlotIfNeeded(side);
-
-        const seq = [];
-        let lastAxis = -1, secondLastAxis = -1, lastFace = '';
-
-        let safety = 0;
-        while (seq.length < TARGET_LEN && safety < 20000) {
-            safety++;
-            const mv = moves[Math.floor(Math.random()*moves.length)];
-            const axis = getAxis(mv);
-            const face = mv[0];
-
-            // basic pruning (avoid spam)
-            if (face === lastFace) continue;
-            if (axis !== -1 && axis === lastAxis && axis === secondLastAxis) continue;
-
-            // try
-            applyMove(mv);
-            if (_validateZblsState(side)) {
-                // accept
-                seq.push(mv);
-                secondLastAxis = lastAxis;
-                lastAxis = axis;
-                lastFace = face;
-            } else {
-                // undo
-                applyMove(_invMove(mv));
-            }
-        }
-
-        if (seq.length === TARGET_LEN) {
-            return { scramble: seq.join(' '), ok: true };
-        }
-    }
-
-    return { scramble: null, ok: false };
-}
-
 async function generatePracticeScramble(eventId){
     const cubingFn = window.__randomScrambleForEvent;
     // Default: use a 3x3 random-state scramble if pool is empty.
@@ -840,18 +698,13 @@ async function generatePracticeScramble(eventId){
 
     // ZBLS: Both (Random) between R/L, using mirror.
     if (eventId === 'prac_zbls') {
+        const basePool = PRACTICE_POOLS.prac_zbls_r || [];
+        const base = basePool.length ? basePool[Math.floor(Math.random() * basePool.length)] : await fallback333();
         const side = Math.random() < 0.5 ? 'R' : 'L';
-        // Generate a no-DB, constraint-based ZBLS practice scramble.
-        const gen = generateZblsPracticeScramble(side);
-        let scr = gen && gen.ok && gen.scramble ? gen.scramble : null;
-
-        // If generation fails (should be rare), fall back to a normal 3x3 scramble.
-        if (!scr) {
-            scr = await fallback333();
-        }
+        const scr = (side === 'L') ? mirror333Alg(base) : base;
         return {
             scramble: scr,
-            meta: { practice: 'ZBLS', side, engine: 'constraint-walk' },
+            meta: { practice: 'ZBLS', side },
             displayEvent: '333'
         };
     }
@@ -1964,10 +1817,13 @@ function updateScrambleDiagram() {
     // Message should only be shown in Scramble Image tool.
     if (activeTool !== 'scramble') {
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
+        // Ensure no duplicate renders keep showing when tool is not active
+        if (visualizerCanvas) visualizerCanvas.classList.add('hidden');
         return;
     }
     if (isBlind) {
         scrambleDiagram.classList.add('hidden');
+        if (visualizerCanvas) visualizerCanvas.classList.add('hidden');
         if (noVisualizerMsg) {
             noVisualizerMsg.classList.remove('hidden');
             noVisualizerMsg.innerText = (currentLang === 'ko')
@@ -1977,6 +1833,13 @@ function updateScrambleDiagram() {
         return;
     }
     if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
+    if (visualizerCanvas) visualizerCanvas.classList.add('hidden');
+
+    // Some versions of scramble-display render into light DOM and can accumulate
+    // multiple SVGs when attributes update quickly (or when CSS forces reflow).
+    // Clearing children before setting attributes prevents duplicate diagrams.
+    try { scrambleDiagram.replaceChildren(); } catch (e) { scrambleDiagram.innerHTML = ''; }
+
     scrambleDiagram.classList.remove('hidden');
     // scramble-display auto-updates when attributes change.
     scrambleDiagram.setAttribute('event', mapEventIdForCubing(currentEvent));
