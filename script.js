@@ -657,6 +657,282 @@ function mirror333Alg(algStr){
     return tokens.map(mapFace).join(' ');
 }
 
+// --- Practice: ZBLS scramble (no fixed alg pool) ---
+// Goal: After executing the scramble from solved (white U, green F), we want:
+// - White cross solved
+// - 3 F2L slots solved
+// - 1 target slot unsolved (BR for Right-hand, BL for Left-hand)
+// This is achieved by: generate a random base scramble, then append a short auto-found "fix" sequence
+// (via IDDFS) that restores cross + 3 slots, leaving last slot free.
+// This avoids maintaining a static alg list, while keeping output as a normal scramble string.
+
+const __SOLVED_333 = (() => {
+    const st = { n: 3 };
+    ['U','D','L','R','F','B'].forEach(f => st[f] = Array(9).fill(COLORS[f]));
+    return st;
+})();
+
+function __cloneState333(st){
+    return {
+        n: 3,
+        U: st.U.slice(), D: st.D.slice(), L: st.L.slice(),
+        R: st.R.slice(), F: st.F.slice(), B: st.B.slice(),
+    };
+}
+function __rotateFaceCW(faceArr){
+    // 3x3 only
+    return [
+        faceArr[6], faceArr[3], faceArr[0],
+        faceArr[7], faceArr[4], faceArr[1],
+        faceArr[8], faceArr[5], faceArr[2],
+    ];
+}
+function __applyMoveToState333(st, moveTok){
+    // Supports U D L R F B with optional ' or 2 (no wide/rotations here).
+    const tok = String(moveTok || '').trim();
+    if (!tok) return;
+    const m = tok.match(/^([URFDLB])([2']?)$/);
+    if (!m) return;
+    const base = m[1];
+    const suf = m[2] || '';
+    const reps = (suf === "'") ? 3 : (suf === "2" ? 2 : 1);
+
+    const rotFace = (f) => { st[f] = __rotateFaceCW(st[f]); };
+
+    for (let r = 0; r < reps; r++) {
+        if (base === 'U') {
+            rotFace('U');
+            const t = st.F.slice(0, 3);
+            st.F.splice(0, 3, ...st.R.slice(0, 3));
+            st.R.splice(0, 3, ...st.B.slice(0, 3));
+            st.B.splice(0, 3, ...st.L.slice(0, 3));
+            st.L.splice(0, 3, ...t);
+        } else if (base === 'D') {
+            rotFace('D');
+            const t = st.F.slice(6, 9);
+            st.F.splice(6, 3, ...st.L.slice(6, 9));
+            st.L.splice(6, 3, ...st.B.slice(6, 9));
+            st.B.splice(6, 3, ...st.R.slice(6, 9));
+            st.R.splice(6, 3, ...t);
+        } else if (base === 'L') {
+            rotFace('L');
+            const t = [st.F[0], st.F[3], st.F[6]];
+            // F <- U
+            [st.F[0], st.F[3], st.F[6]] = [st.U[0], st.U[3], st.U[6]];
+            // U <- B (reversed)
+            [st.U[0], st.U[3], st.U[6]] = [st.B[8], st.B[5], st.B[2]];
+            // B <- D (reversed)
+            [st.B[8], st.B[5], st.B[2]] = [st.D[0], st.D[3], st.D[6]];
+            // D <- t
+            [st.D[0], st.D[3], st.D[6]] = t;
+        } else if (base === 'R') {
+            rotFace('R');
+            const t = [st.F[2], st.F[5], st.F[8]];
+            // F <- D
+            [st.F[2], st.F[5], st.F[8]] = [st.D[2], st.D[5], st.D[8]];
+            // D <- B (reversed)
+            [st.D[2], st.D[5], st.D[8]] = [st.B[6], st.B[3], st.B[0]];
+            // B <- U (reversed)
+            [st.B[6], st.B[3], st.B[0]] = [st.U[2], st.U[5], st.U[8]];
+            // U <- t
+            [st.U[2], st.U[5], st.U[8]] = t;
+        } else if (base === 'F') {
+            rotFace('F');
+            const t = [st.U[6], st.U[7], st.U[8]];
+            // U bottom <- L right (reversed)
+            [st.U[6], st.U[7], st.U[8]] = [st.L[8], st.L[5], st.L[2]];
+            // L right <- D top (reversed)
+            [st.L[8], st.L[5], st.L[2]] = [st.D[2], st.D[1], st.D[0]];
+            // D top <- R left
+            [st.D[2], st.D[1], st.D[0]] = [st.R[0], st.R[3], st.R[6]];
+            // R left <- t
+            [st.R[0], st.R[3], st.R[6]] = t;
+        } else if (base === 'B') {
+            rotFace('B');
+            const t = [st.U[0], st.U[1], st.U[2]];
+            // U top <- R right
+            [st.U[0], st.U[1], st.U[2]] = [st.R[2], st.R[5], st.R[8]];
+            // R right <- D bottom (reversed)
+            [st.R[2], st.R[5], st.R[8]] = [st.D[8], st.D[7], st.D[6]];
+            // D bottom <- L left (reversed)
+            [st.D[8], st.D[7], st.D[6]] = [st.L[6], st.L[3], st.L[0]];
+            // L left <- t (reversed)
+            [st.L[6], st.L[3], st.L[0]] = [t[2], t[1], t[0]];
+        }
+    }
+}
+
+function __applyAlgToState333(st, algStr){
+    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
+    for (const t of toks) __applyMoveToState333(st, t);
+    return st;
+}
+
+function __random333ScrambleTokens(len){
+    const moves = ["U","D","L","R","F","B"];
+    const sufs = ["", "'", "2"];
+    const axisOf = (m) => ("UD".includes(m) ? 0 : ("LR".includes(m) ? 1 : 2));
+    let res = [];
+    let lastBase = '';
+    let lastAxis = -1;
+    let secondLastAxis = -1;
+
+    for (let i = 0; i < len; i++) {
+        let base, axis;
+        while (true) {
+            base = moves[Math.floor(Math.random() * moves.length)];
+            axis = axisOf(base);
+            if (base === lastBase) continue;
+            if (axis === lastAxis && axis === secondLastAxis) continue;
+            break;
+        }
+        res.push(base + sufs[Math.floor(Math.random() * 3)]);
+        secondLastAxis = lastAxis;
+        lastAxis = axis;
+        lastBase = base;
+    }
+    return res;
+}
+
+const __ZBLS_EXPECT = (() => {
+    // Expected sticker colors in solved orientation (white U, green F).
+    const C = COLORS;
+    const cross = [
+        ['U', 1, C.U], ['B', 1, C.B], // UB
+        ['U', 3, C.U], ['L', 1, C.L], // UL
+        ['U', 5, C.U], ['R', 1, C.R], // UR
+        ['U', 7, C.U], ['F', 1, C.F], // UF
+    ];
+    const slotPieces = {
+        FR: [
+            ['F', 5, C.F], ['R', 3, C.R],                    // FR edge
+            ['D', 2, C.D], ['F', 8, C.F], ['R', 6, C.R],    // DFR corner
+        ],
+        FL: [
+            ['F', 3, C.F], ['L', 5, C.L],                    // FL edge (F middle-left, L middle-right)
+            ['D', 0, C.D], ['F', 6, C.F], ['L', 8, C.L],    // DFL corner
+        ],
+        BR: [
+            ['B', 3, C.B], ['R', 5, C.R],                    // BR edge (B middle-left, R middle-right)
+            ['D', 8, C.D], ['B', 6, C.B], ['R', 8, C.R],    // DBR corner
+        ],
+        BL: [
+            ['B', 5, C.B], ['L', 3, C.L],                    // BL edge (B middle-right, L middle-left)
+            ['D', 6, C.D], ['B', 8, C.B], ['L', 6, C.L],    // DBL corner
+        ]
+    };
+    return { cross, slotPieces };
+})();
+
+function __checkStickers(st, checks){
+    for (const [f, idx, col] of checks) {
+        if (!st[f] || st[f][idx] !== col) return false;
+    }
+    return true;
+}
+function __goalZBLS(st, side){
+    // side: 'R' => missing BR slot, so check FR/FL/BL solved
+    // side: 'L' => missing BL slot, so check FR/FL/BR solved
+    if (!__checkStickers(st, __ZBLS_EXPECT.cross)) return false;
+    const need = (side === 'L') ? ['FR','FL','BR'] : ['FR','FL','BL'];
+    for (const k of need) {
+        if (!__checkStickers(st, __ZBLS_EXPECT.slotPieces[k])) return false;
+    }
+    return true;
+}
+
+function __iddfsFindFixForZBLS(baseState, side, maxDepth){
+    const MOVES = ["U","U'","U2","R","R'","R2","L","L'","L2","F","F'","F2","B","B'","B2","D","D'","D2"];
+    const axisOf = (mv) => {
+        const f = mv[0];
+        if ("UD".includes(f)) return 0;
+        if ("LR".includes(f)) return 1;
+        return 2;
+    };
+
+    const dfs = (st, depth, lastFace, lastAxis, secondLastAxis, path) => {
+        if (__goalZBLS(st, side)) return path.slice();
+        if (depth === 0) return null;
+
+        for (const mv of MOVES) {
+            const face = mv[0];
+            if (face === lastFace) continue;
+
+            const ax = axisOf(mv);
+            if (ax === lastAxis && ax === secondLastAxis) continue;
+
+            const next = __cloneState333(st);
+            __applyMoveToState333(next, mv);
+            path.push(mv);
+            const out = dfs(next, depth - 1, face, ax, lastAxis, path);
+            path.pop();
+            if (out) return out;
+        }
+        return null;
+    };
+
+    // Iterative deepening
+    for (let d = 0; d <= maxDepth; d++) {
+        const out = dfs(__cloneState333(baseState), d, '', -1, -1, []);
+        if (out) return out;
+    }
+    return null;
+}
+
+async function __generateZBLSPracticeScramble(side){
+    // Try multiple bases; append a short fix sequence.
+    const targetTotalMin = 18, targetTotalMax = 21;
+    const MAX_ATTEMPTS = 40;
+    const MAX_DEPTH = 8;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        // Aim for total length near 18~21.
+        const targetTotal = targetTotalMin + Math.floor(Math.random() * (targetTotalMax - targetTotalMin + 1));
+        const baseLen = 11 + Math.floor(Math.random() * 4); // 11~14
+        const base = __random333ScrambleTokens(baseLen);
+
+        const st = __cloneState333(__SOLVED_333);
+        for (const t of base) __applyMoveToState333(st, t);
+
+        const fix = __iddfsFindFixForZBLS(st, side, MAX_DEPTH);
+        if (!fix) continue;
+
+        // If too short, lightly pad by inserting extra random U moves into the base and retry next attempt.
+        const totalLen = base.length + fix.length;
+        if (totalLen < targetTotalMin) continue;
+
+        // If too long, still accept (better than failing). We'll trim only if the fix overshoots a lot.
+        const combined = base.concat(fix);
+        return combined.join(' ');
+    }
+
+    // Final fallback: at least return a normal 3x3 scramble (never break the app)
+    // NOTE: This is not ZBLS-guaranteed, but prevents a dead UI in worst-case.
+    const conf = configs['333'];
+    let res = [];
+    let lastAxis = -1, secondLastAxis = -1, lastMoveBase = "";
+    const getMoveAxis = (m) => ("UD".includes(m[0]) ? 0 : ("LR".includes(m[0]) ? 1 : 2));
+    for (let i = 0; i < conf.len; i++) {
+        let move, axis, base;
+        let valid = false;
+        while (!valid) {
+            move = conf.moves[Math.floor(Math.random() * conf.moves.length)];
+            axis = getMoveAxis(move);
+            base = move[0];
+            if (base === lastMoveBase) { valid = false; continue; }
+            if (axis !== -1 && axis === lastAxis && axis === secondLastAxis) { valid = false; continue; }
+            valid = true;
+        }
+        res.push(move + suffixes[Math.floor(Math.random() * 3)]);
+        secondLastAxis = lastAxis;
+        lastAxis = axis;
+        lastMoveBase = base;
+    }
+    return res.join(' ');
+}
+
+
+
 async function generatePracticeScramble(eventId){
     const cubingFn = window.__randomScrambleForEvent;
     // Default: use a 3x3 random-state scramble if pool is empty.
@@ -696,17 +972,20 @@ async function generatePracticeScramble(eventId){
         return res.join(' ');
     };
 
-    // ZBLS: Both (Random) between R/L, using mirror.
+    // ZBLS: generate scramble by random base + auto-found fix (no static alg pool)
     if (eventId === 'prac_zbls') {
-        const basePool = PRACTICE_POOLS.prac_zbls_r || [];
-        const base = basePool.length ? basePool[Math.floor(Math.random() * basePool.length)] : await fallback333();
-        const side = Math.random() < 0.5 ? 'R' : 'L';
-        const scr = (side === 'L') ? mirror333Alg(base) : base;
-        return {
-            scramble: scr,
-            meta: { practice: 'ZBLS', side },
-            displayEvent: '333'
-        };
+        // Determine side: 'R' (missing BR slot) / 'L' (missing BL slot) / 'Both' random
+        let side = String(practiceVariant || 'both').toLowerCase();
+        if (side === 'both') side = (Math.random() < 0.5) ? 'r' : 'l';
+        const sideKey = (side === 'l') ? 'L' : 'R';
+
+        // Update UI label if present
+        try{
+            const labelEl = document.getElementById('practiceVariantLabel');
+            if (labelEl) labelEl.textContent = (sideKey === 'L') ? 'ZBLS (Left)' : 'ZBLS (Right)';
+        }catch(e){}
+
+        return await __generateZBLSPracticeScramble(sideKey);
     }
 
     // Others: use pool if present; otherwise fallback to 3x3 scramble.
