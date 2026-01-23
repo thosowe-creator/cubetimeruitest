@@ -659,268 +659,142 @@ function mirror333Alg(algStr){
 
 
 /* =========================
-   ZBLS Practice Engine (solver-based, no case alg pool)
-   - 목표: White U / Green F 기준에서
-     U-cross + 3 slots solved, 1 slot unsolved (R: UBR/BR, L: UBL/BL)
-   - 방식: cubejs로 목표 상태를 조각(permutation/orientation) 단위로 생성
-           -> cubejs solver로 solution 산출
-           -> invert(solution) = scramble
+   ZBLS Practice Engine (no case-ALG DB)
+   - Uses local min2phase.js (same-origin) for fast state eval (fromScramble)
+   - Generates short scramble S such that applying S to solved yields:
+     * White on U (face 'U'), Green on F (face 'F') in our view (URFDLB faces, fixed)
+     * U cross solved
+     * 3 F2L slots solved, one slot unsolved (BR for R-mode, BL for L-mode)
+   NOTE: This does NOT use external CDN (Tracking Prevention safe).
 ========================= */
 
-let __cubejsLoadPromise = null;
-let __cubejsReady = false;
-let __cubejsSolverInited = false;
-
-function __loadScriptOnce(url, globalName, timeoutMs = 15000) {
-    return new Promise((resolve) => {
-        // already present
-        if (globalName && window[globalName]) return resolve(true);
-
-        const s = document.createElement('script');
-        s.src = url;
-        s.async = true;
-
-        const timer = setTimeout(() => {
-            try { s.remove(); } catch (_) {}
-            resolve(false);
-        }, timeoutMs);
-
-        s.onload = () => {
-            clearTimeout(timer);
-            resolve(globalName ? !!window[globalName] : true);
-        };
-        s.onerror = () => {
-            clearTimeout(timer);
-            resolve(false);
-        };
-        document.head.appendChild(s);
+let __min2phasePromise = null;
+async function ensureMin2phaseLoaded() {
+  if (window.min2phase && typeof window.min2phase.fromScramble === 'function') return true;
+  if (!__min2phasePromise) {
+    __min2phasePromise = new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'min2phase.js';
+      s.async = true;
+      s.onload = () => resolve(true);
+      s.onerror = () => resolve(false);
+      document.head.appendChild(s);
     });
+  }
+  return await __min2phasePromise;
 }
 
-async function __ensureCubejs() {
-    if (__cubejsReady && window.Cube) return true;
-    if (!__cubejsLoadPromise) {
-        // cubejs (ldez/cubejs) - widely used MIT library
-        const CDN = "https://cdn.jsdelivr.net/npm/cubejs@1.3.2/cube.min.js";
-        __cubejsLoadPromise = __loadScriptOnce(CDN, "Cube", 20000).then((ok) => {
-            __cubejsReady = ok;
-            return ok;
-        });
-    }
-    return await __cubejsLoadPromise;
-}
+// Facelet indices for URFDLB string in min2phase
+const ZBLS_IDX = {
+  // U cross edges (solved in place & orientation)
+  UR: [5, 10],  // U5 R10
+  UF: [7, 19],  // U7 F19
+  UL: [3, 37],  // U3 L37
+  UB: [1, 46],  // U1 B46
 
-function __invertMove(tok) {
-    if (!tok) return tok;
-    if (tok.endsWith("2")) return tok;      // R2 -> R2
-    if (tok.endsWith("'")) return tok.slice(0, -1); // R' -> R
-    return tok + "'";                       // R -> R'
-}
-function __invertAlg(algStr) {
-    const toks = String(algStr || "").trim().split(/\s+/).filter(Boolean);
-    return toks.reverse().map(__invertMove).join(" ");
-}
-function __shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
-function __permParity(perm) {
-    // perm: array mapping position -> piece (0..n-1)
-    const n = perm.length;
-    const seen = new Array(n).fill(false);
-    let parity = 0;
-    for (let i = 0; i < n; i++) {
-        if (seen[i]) continue;
-        let cycleLen = 0;
-        let j = i;
-        while (!seen[j]) {
-            seen[j] = true;
-            j = perm[j];
-            cycleLen++;
-        }
-        if (cycleLen > 0) parity ^= ((cycleLen - 1) & 1);
-    }
-    return parity; // 0 even, 1 odd
-}
+  // Corners on U layer (white up)
+  URF: [8, 9, 20],
+  UFL: [6, 18, 38],
+  ULB: [0, 36, 47],
+  UBR: [2, 45, 11],
 
-// cubejs indexing (standard):
-// corners: 0 URF, 1 UFL, 2 ULB, 3 UBR, 4 DFR, 5 DLF, 6 DBL, 7 DRB
-// edges:   0 UR,  1 UF,  2 UL,  3 UB,  4 DR,  5 DF,  6 DL,  7 DB,  8 FR,  9 FL, 10 BL, 11 BR
-const __ZBLS = {
-    crossEdges: [0, 1, 2, 3], // UR UF UL UB (white cross on U)
-    slots: {
-        UFR: { cornerPos: 0, edgePos: 8 },
-        UFL: { cornerPos: 1, edgePos: 9 },
-        UBL: { cornerPos: 2, edgePos: 10 },
-        UBR: { cornerPos: 3, edgePos: 11 },
-    }
+  // Middle edges for slots
+  FR: [23, 12],
+  FL: [21, 41],
+  BL: [50, 39],
+  BR: [48, 14]
 };
 
-function __buildZblsTargetCube(side) {
-    const Cube = window.Cube;
-    const c = new Cube();
-
-    // Start with solved arrays
-    const cp = [0,1,2,3,4,5,6,7];
-    const co = [0,0,0,0,0,0,0,0];
-    const ep = [0,1,2,3,4,5,6,7,8,9,10,11];
-    const eo = [0,0,0,0,0,0,0,0,0,0,0,0];
-
-    // Determine which 3 slots must be solved
-    const solvedSlots = (side === 'R')
-        ? ['UFR','UFL','UBL']
-        : ['UFR','UFL','UBR'];
-    const unsolvedSlot = (side === 'R') ? 'UBR' : 'UBL';
-
-    // Fixed corner positions/pieces: solvedSlots corners stay solved (pos==piece, ori 0)
-    const fixedCornerPos = new Set(solvedSlots.map(k => __ZBLS.slots[k].cornerPos));
-    // Also: corners not in those positions are free, including the unsolved slot corner.
-    // Fixed edge positions/pieces: cross edges + solvedSlots edges
-    const fixedEdgePos = new Set(__ZBLS.crossEdges.concat(solvedSlots.map(k => __ZBLS.slots[k].edgePos)));
-
-    // Build random corner permutation for free positions
-    const freeCornerPos = [];
-    const freeCornerPieces = [];
-    for (let pos = 0; pos < 8; pos++) if (!fixedCornerPos.has(pos)) freeCornerPos.push(pos);
-    for (let piece = 0; piece < 8; piece++) if (!fixedCornerPos.has(piece)) freeCornerPieces.push(piece);
-    __shuffle(freeCornerPieces);
-    for (let i = 0; i < freeCornerPos.length; i++) cp[freeCornerPos[i]] = freeCornerPieces[i];
-
-    // Corner orientations: random for free corners, but sum mod 3 = 0
-    let sumCo = 0;
-    const freeCornerPosForOri = freeCornerPos.slice();
-    for (let i = 0; i < freeCornerPosForOri.length; i++) {
-        const pos = freeCornerPosForOri[i];
-        if (i === freeCornerPosForOri.length - 1) {
-            co[pos] = (3 - (sumCo % 3)) % 3;
-        } else {
-            const r = Math.floor(Math.random() * 3);
-            co[pos] = r;
-            sumCo += r;
-        }
-    }
-
-    // Build random edge permutation for free positions
-    const freeEdgePos = [];
-    const freeEdgePieces = [];
-    for (let pos = 0; pos < 12; pos++) if (!fixedEdgePos.has(pos)) freeEdgePos.push(pos);
-    for (let piece = 0; piece < 12; piece++) if (!fixedEdgePos.has(piece)) freeEdgePieces.push(piece);
-    __shuffle(freeEdgePieces);
-    for (let i = 0; i < freeEdgePos.length; i++) ep[freeEdgePos[i]] = freeEdgePieces[i];
-
-    // Edge orientations: random for free edges, but sum mod 2 = 0
-    let sumEo = 0;
-    for (let i = 0; i < freeEdgePos.length; i++) {
-        const pos = freeEdgePos[i];
-        if (i === freeEdgePos.length - 1) {
-            eo[pos] = (2 - (sumEo % 2)) % 2;
-        } else {
-            const r = Math.floor(Math.random() * 2);
-            eo[pos] = r;
-            sumEo += r;
-        }
-    }
-
-    // Parity fix: corner parity must match edge parity.
-    const cornerParity = __permParity(cp);
-    const edgeParity = __permParity(ep);
-    if (cornerParity !== edgeParity) {
-        // swap two free edges to flip edge parity (must have at least 2 free edges)
-        if (freeEdgePos.length >= 2) {
-            const p1 = freeEdgePos[0], p2 = freeEdgePos[1];
-            [ep[p1], ep[p2]] = [ep[p2], ep[p1]];
-        } else if (freeCornerPos.length >= 2) {
-            const p1 = freeCornerPos[0], p2 = freeCornerPos[1];
-            [cp[p1], cp[p2]] = [cp[p2], cp[p1]];
-        }
-    }
-
-    // Ensure the designated slot is NOT fully solved (corner+edge in place & oriented)
-    const u = __ZBLS.slots[unsolvedSlot];
-    const slotSolved = (cp[u.cornerPos] === u.cornerPos && co[u.cornerPos] === 0 && ep[u.edgePos] === u.edgePos && eo[u.edgePos] === 0);
-    if (slotSolved) {
-        // perturb by swapping two free edges (safe)
-        if (freeEdgePos.length >= 2) {
-            const p1 = freeEdgePos[0], p2 = freeEdgePos[1];
-            [ep[p1], ep[p2]] = [ep[p2], ep[p1]];
-        } else {
-            // fallback: swap two free corners
-            const p1 = freeCornerPos[0], p2 = freeCornerPos[1];
-            [cp[p1], cp[p2]] = [cp[p2], cp[p1]];
-        }
-    }
-
-    c.cp = cp;
-    c.co = co;
-    c.ep = ep;
-    c.eo = eo;
-
-    return c;
+function _faceletMatch(facelet, idxArr, expectedCharsArr) {
+  for (let i = 0; i < idxArr.length; i++) {
+    if (facelet[idxArr[i]] !== expectedCharsArr[i]) return false;
+  }
+  return true;
 }
 
-function __isZblsTargetCube(cube, side) {
-    // validate by checking fixed pieces are solved and target slot not fully solved
-    const cp = cube.cp, co = cube.co, ep = cube.ep, eo = cube.eo;
-    // cross edges
-    for (const e of __ZBLS.crossEdges) {
-        if (ep[e] !== e || eo[e] !== 0) return false;
-    }
-    const solvedSlots = (side === 'R')
-        ? ['UFR','UFL','UBL']
-        : ['UFR','UFL','UBR'];
-    const unsolvedSlot = (side === 'R') ? 'UBR' : 'UBL';
+function zbIsUCrossSolved(facelet) {
+  // require exact letters in solved positions
+  return (
+    _faceletMatch(facelet, ZBLS_IDX.UR, ['U','R']) &&
+    _faceletMatch(facelet, ZBLS_IDX.UF, ['U','F']) &&
+    _faceletMatch(facelet, ZBLS_IDX.UL, ['U','L']) &&
+    _faceletMatch(facelet, ZBLS_IDX.UB, ['U','B'])
+  );
+}
 
-    for (const k of solvedSlots) {
-        const s = __ZBLS.slots[k];
-        if (cp[s.cornerPos] !== s.cornerPos || co[s.cornerPos] !== 0) return false;
-        if (ep[s.edgePos] !== s.edgePos || eo[s.edgePos] !== 0) return false;
-    }
-    const u = __ZBLS.slots[unsolvedSlot];
-    const slotSolved = (cp[u.cornerPos] === u.cornerPos && co[u.cornerPos] === 0 && ep[u.edgePos] === u.edgePos && eo[u.edgePos] === 0);
-    if (slotSolved) return false;
+function zbIsSlotSolved(facelet, slot) {
+  if (slot === 'FR') {
+    return _faceletMatch(facelet, ZBLS_IDX.URF, ['U','R','F']) && _faceletMatch(facelet, ZBLS_IDX.FR, ['F','R']);
+  }
+  if (slot === 'FL') {
+    return _faceletMatch(facelet, ZBLS_IDX.UFL, ['U','F','L']) && _faceletMatch(facelet, ZBLS_IDX.FL, ['F','L']);
+  }
+  if (slot === 'BL') {
+    return _faceletMatch(facelet, ZBLS_IDX.ULB, ['U','L','B']) && _faceletMatch(facelet, ZBLS_IDX.BL, ['B','L']);
+  }
+  if (slot === 'BR') {
+    return _faceletMatch(facelet, ZBLS_IDX.UBR, ['U','B','R']) && _faceletMatch(facelet, ZBLS_IDX.BR, ['B','R']);
+  }
+  return false;
+}
 
+function zbValidateState(facelet, side) {
+  // side: 'R' => keep FR, FL, BL solved; BR must NOT be solved
+  // side: 'L' => keep FR, FL, BR solved; BL must NOT be solved
+  if (!facelet || facelet.length !== 54) return false;
+  if (facelet[4] !== 'U' || facelet[22] !== 'F') return false; // centers fixed
+  if (!zbIsUCrossSolved(facelet)) return false;
+
+  if (side === 'R') {
+    if (!zbIsSlotSolved(facelet,'FR')) return false;
+    if (!zbIsSlotSolved(facelet,'FL')) return false;
+    if (!zbIsSlotSolved(facelet,'BL')) return false;
+    if (zbIsSlotSolved(facelet,'BR')) return false; // must be unsolved
     return true;
+  }
+  // 'L'
+  if (!zbIsSlotSolved(facelet,'FR')) return false;
+  if (!zbIsSlotSolved(facelet,'FL')) return false;
+  if (!zbIsSlotSolved(facelet,'BR')) return false;
+  if (zbIsSlotSolved(facelet,'BL')) return false;
+  return true;
 }
 
-async function generateZblsPracticeScramble(side) {
-    const ok = await __ensureCubejs();
-    if (!ok || !window.Cube) return null;
+function zbRandomMoveToken(allowedFaces) {
+  const face = allowedFaces[Math.floor(Math.random() * allowedFaces.length)];
+  const suff = ["", "'", "2"][Math.floor(Math.random() * 3)];
+  return face + suff;
+}
 
-    try {
-        if (!__cubejsSolverInited && typeof window.Cube.initSolver === 'function') {
-            // initSolver can be heavy; do it once
-            window.Cube.initSolver();
-            __cubejsSolverInited = true;
-        }
-    } catch (e) {
-        console.warn('[CubeTimer] cubejs solver init failed', e);
-        return null;
-    }
+function zbGenerateCandidateScramble(side) {
+  // We search short sequences whose result state matches constraints.
+  // Allowed move faces chosen to make BR/BL manipulation possible while still allowing return to solved cross/slots.
+  const allowed = (side === 'R') ? ['U','R','B','D'] : ['U','L','B','D'];
+  // Length range tuned for feasibility vs variety
+  const len = 10 + Math.floor(Math.random() * 7); // 10-16
+  const moves = [];
+  let lastFace = '';
+  for (let i = 0; i < len; i++) {
+    let tok = zbRandomMoveToken(allowed);
+    // avoid immediate same face repetition
+    while (tok[0] === lastFace) tok = zbRandomMoveToken(allowed);
+    moves.push(tok);
+    lastFace = tok[0];
+  }
+  return moves.join(' ');
+}
 
-    const MAX_TARGET_TRIES = 200;
-    for (let i = 0; i < MAX_TARGET_TRIES; i++) {
-        const target = __buildZblsTargetCube(side);
-        if (!__isZblsTargetCube(target, side)) continue;
+async function generateZblsScrambleViaMin2phase(side) {
+  const ok = await ensureMin2phaseLoaded();
+  if (!ok || !window.min2phase || typeof window.min2phase.fromScramble !== 'function') return null;
 
-        let sol = '';
-        try {
-            sol = target.solve();
-        } catch (e) {
-            continue;
-        }
-        if (!sol || typeof sol !== 'string') continue;
-
-        const scramble = __invertAlg(sol);
-
-        // final verify (scramble should reproduce target)
-        const check = new window.Cube();
-        try { check.move(scramble); } catch (e) { continue; }
-        if (__isZblsTargetCube(check, side)) return scramble;
-    }
-    return null;
+  const MAX_TRIES = 25000; // keep bounded
+  for (let i = 0; i < MAX_TRIES; i++) {
+    const scr = zbGenerateCandidateScramble(side);
+    const facelet = window.min2phase.fromScramble(scr);
+    if (zbValidateState(facelet, side)) return scr;
+  }
+  return null;
 }
 
 async function generatePracticeScramble(eventId){
@@ -962,17 +836,20 @@ async function generatePracticeScramble(eventId){
         return res.join(' ');
     };
 
-    // ZBLS: Both (Random) between R/L, using mirror.
-    if (eventId === 'prac_zbls') {
-        const side = Math.random() < 0.5 ? 'R' : 'L';
-        const scr = await generateZblsPracticeScramble(side);
-        const out = scr || await fallback333();
-        return {
-            scramble: out,
-            meta: { practice: 'ZBLS', side, engine: scr ? 'solver' : 'fallback' },
-            displayEvent: '333'
-        };
-    }
+    
+// ZBLS: Generate constraint-based scramble (no case-ALG DB)
+if (eventId === 'prac_zbls') {
+    const side = Math.random() < 0.5 ? 'R' : 'L';
+    const scr = await generateZblsScrambleViaMin2phase(side);
+    // Fallback: if we couldn't find a constrained state quickly, use normal 3x3 scramble.
+    const finalScr = scr || await fallback333();
+    return {
+        scramble: finalScr,
+        meta: { practice: 'ZBLS', side },
+        displayEvent: '333'
+    };
+}
+
 
     // Others: use pool if present; otherwise fallback to 3x3 scramble.
     const pool = PRACTICE_POOLS[eventId] || [];
