@@ -623,362 +623,18 @@ const PRACTICE_POOLS = {
     prac_oll: [],
     prac_pll: [],
     prac_zbll: [],
+    // ZBLS: right-side base pool. Left is produced by mirroring.
+    prac_zbls_r: [
+        "R U R' U' R' F R2 U' R' U' R U R' F'",
+        "F R U R' U' F' R U R' U' R U R'",
+        "R U2 R2 F R F' U2 R' F R F'",
+        "R U R' U R U2 R' F R U R' U' F'",
+        "R U R' U' R' F R F' R U2 R'"
+    ]
 };
 
 // last generated practice metadata (stored into solve record)
 let currentPracticeMeta = null;
-
-// ------------------------------
-// ZBLS Practice Engine (No case-alg DB)
-//
-// Goal (with green front / white top orientation):
-// - White U-cross solved and aligned (UF/UR/UB/UL)
-// - 3 "F2L-like" slots around U are fully solved (corner + edge)
-// - One slot is NOT solved:
-//   - side 'R': BR/UBR slot (RB + WRB) NOT solved
-//   - side 'L': BL/UBL slot (BO + WOB) NOT solved
-//
-// Implementation: generate a realistic random-state 3x3 scramble, then run a
-// small depth-limited "repair" search to enforce the constraints.
-// This avoids a full solver dependency while keeping output as a normal 3x3
-// scramble string that works with the existing diagram renderer.
-// ------------------------------
-
-function _cloneCubeState() {
-    const st = { n: cubeState?.n || 3 };
-    ['U','D','L','R','F','B'].forEach(f => st[f] = (cubeState?.[f] || []).slice());
-    return st;
-}
-
-function _loadCubeState(st) {
-    cubeState = { n: st.n };
-    ['U','D','L','R','F','B'].forEach(f => cubeState[f] = st[f].slice());
-}
-
-function _applyAlgToCurrent(algStr) {
-    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
-    toks.forEach(t => applyMove(t));
-}
-
-function _isUCrossSolvedAligned() {
-    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-    if (!U || U.length !== 9) return false;
-    const w = COLORS.U;
-    if (U[1] !== w || U[3] !== w || U[5] !== w || U[7] !== w) return false;
-    // aligned with side centers
-    if (F[1] !== COLORS.F) return false; // UF
-    if (R[1] !== COLORS.R) return false; // UR
-    if (B[1] !== COLORS.B) return false; // UB
-    if (L[1] !== COLORS.L) return false; // UL
-    return true;
-}
-
-// Slot checks assume standard face indexing used by our cube simulator.
-function _isSlotSolved(slotKey) {
-    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-    const ok = (a,b) => a === b;
-    switch (slotKey) {
-        case 'UFR':
-            // corner: U[8]=W, F[2]=G, R[0]=R | edge FR: F[5]=G, R[3]=R
-            return ok(U[8], COLORS.U) && ok(F[2], COLORS.F) && ok(R[0], COLORS.R)
-                && ok(F[5], COLORS.F) && ok(R[3], COLORS.R);
-        case 'UFL':
-            // corner: U[6]=W, F[0]=G, L[2]=O | edge FL: F[3]=G, L[5]=O
-            return ok(U[6], COLORS.U) && ok(F[0], COLORS.F) && ok(L[2], COLORS.L)
-                && ok(F[3], COLORS.F) && ok(L[5], COLORS.L);
-        case 'UBR':
-            // corner: U[2]=W, B[0]=B, R[2]=R | edge BR: B[3]=B, R[5]=R
-            return ok(U[2], COLORS.U) && ok(B[0], COLORS.B) && ok(R[2], COLORS.R)
-                && ok(B[3], COLORS.B) && ok(R[5], COLORS.R);
-        case 'UBL':
-            // corner: U[0]=W, B[2]=B, L[0]=O | edge BL: B[5]=B, L[3]=O
-            return ok(U[0], COLORS.U) && ok(B[2], COLORS.B) && ok(L[0], COLORS.L)
-                && ok(B[5], COLORS.B) && ok(L[3], COLORS.L);
-        default:
-            return false;
-    }
-}
-
-function _isZblsTargetState(side) {
-    if (!_isUCrossSolvedAligned()) return false;
-    if (side === 'R') {
-        // require UFR, UFL, UBL solved; UBR NOT solved
-        return _isSlotSolved('UFR') && _isSlotSolved('UFL') && _isSlotSolved('UBL') && !_isSlotSolved('UBR');
-    }
-    // side === 'L'
-    return _isSlotSolved('UFR') && _isSlotSolved('UFL') && _isSlotSolved('UBR') && !_isSlotSolved('UBL');
-}
-
-function _invertMove(m) {
-    if (!m) return m;
-    if (m.endsWith("2")) return m;
-    if (m.endsWith("'")) return m.slice(0, -1);
-    return m + "'";
-}
-
-function _invertAlg(algStr) {
-    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
-    return toks.reverse().map(_invertMove).join(' ');
-}
-
-function _normalizeAlg(algStr) {
-    // simple whitespace normalize only (avoid aggressive cancellations)
-    return String(algStr || '').trim().replace(/\s+/g, ' ');
-}
-
-// Depth-limited DFS "repair" search for the ZBLS target constraints.
-async function _findRepairAlgForZbls(side, maxDepth) {
-    const moves = ['U','U2',"U'",'R','R2',"R'",'L','L2',"L'",'F','F2',"F'",'B','B2',"B'",'D','D2',"D'"];
-    const axisOf = (mv) => {
-        const f = mv[0];
-        if (f === 'U' || f === 'D') return 0;
-        if (f === 'L' || f === 'R') return 1;
-        if (f === 'F' || f === 'B') return 2;
-        return -1;
-    };
-    const start = _cloneCubeState();
-    const seen = new Set();
-
-    const hashGoalSubset = () => {
-        // hash only relevant stickers for pruning
-        const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-        return [
-            U[0],U[1],U[2],U[3],U[5],U[6],U[7],U[8],
-            F[0],F[1],F[2],F[3],F[5],
-            R[0],R[1],R[2],R[3],R[5],
-            B[0],B[1],B[2],B[3],B[5],
-            L[0],L[1],L[2],L[3],L[5]
-        ].join('|');
-    };
-
-    const dfs = (depth, lastFace, lastAxis, secondLastAxis, path) => {
-        if (_isZblsTargetState(side)) return path.slice();
-        if (depth === 0) return null;
-        const h = hashGoalSubset() + `|d${depth}`;
-        if (seen.has(h)) return null;
-        seen.add(h);
-
-        for (const mv of moves) {
-            const face = mv[0];
-            const ax = axisOf(mv);
-            if (face === lastFace) continue;
-            if (ax === lastAxis && ax === secondLastAxis) continue;
-
-            const before = _cloneCubeState();
-            applyMove(mv);
-            path.push(mv);
-
-            const res = dfs(depth - 1, face, ax, lastAxis, path);
-            if (res) return res;
-
-            path.pop();
-            _loadCubeState(before);
-        }
-        return null;
-    };
-
-    for (let d = 0; d <= maxDepth; d++) {
-        _loadCubeState(start);
-        seen.clear();
-        const res = dfs(d, '', -1, -1, []);
-        if (res) return res.join(' ');
-    }
-    return null;
-}
-
-async function _ensureCubejsLoaded() {
-    if (window.Cube && typeof window.Cube === 'function') return true;
-
-    const loadScript = (src) => new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = true;
-        s.onload = () => resolve(true);
-        s.onerror = () => reject(new Error('Failed to load ' + src));
-        document.head.appendChild(s);
-    });
-
-    try {
-        // cubejs (ldez/cubejs) - MIT license
-        await loadScript('https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/cube.js'); 
-    } catch (e) {
-        console.warn('[ZBLS] cubejs load failed:', e);
-        return false;
-    }
-
-    if (!window.Cube || typeof window.Cube !== 'function') return false; 
-    return true;
-}
-
-// cubejs facelet order: U(0-8) R(9-17) F(18-26) D(27-35) L(36-44) B(45-53)
-function _cubejsIsUCrossSolvedAligned(facelets) {
-    // White is U in our visualization (White U / Green F)
-    // Cross stickers on U:
-    if (facelets[1] !== 'U' || facelets[3] !== 'U' || facelets[5] !== 'U' || facelets[7] !== 'U') return false;
-    // Alignment with centers on side faces: UF/UR/UB/UL must match F/R/B/L.
-    if (facelets[18 + 1] !== 'F') return false; // UF on F face (index 19)
-    if (facelets[9  + 1] !== 'R') return false; // UR on R face (index 10)
-    if (facelets[45 + 1] !== 'B') return false; // UB on B face (index 46)
-    if (facelets[36 + 1] !== 'L') return false; // UL on L face (index 37)
-    return true;
-}
-
-function _cubejsIsSlotSolved(facelets, slotKey) {
-    const ok = (idx, ch) => facelets[idx] === ch;
-    switch (slotKey) {
-        case 'UFR':
-            // corner UFR: U[8], F[2], R[0]  | edge FR: F[5], R[3]
-            return ok(8, 'U') && ok(18 + 2, 'F') && ok(9 + 0, 'R')
-                && ok(18 + 5, 'F') && ok(9 + 3, 'R');
-        case 'UFL':
-            // corner UFL: U[6], F[0], L[2] | edge FL: F[3], L[5]
-            return ok(6, 'U') && ok(18 + 0, 'F') && ok(36 + 2, 'L')
-                && ok(18 + 3, 'F') && ok(36 + 5, 'L');
-        case 'UBR':
-            // corner UBR: U[2], B[0], R[2] | edge BR: B[3], R[5]
-            return ok(2, 'U') && ok(45 + 0, 'B') && ok(9 + 2, 'R')
-                && ok(45 + 3, 'B') && ok(9 + 5, 'R');
-        case 'UBL':
-            // corner UBL: U[0], B[2], L[0] | edge BL: B[5], L[3]
-            return ok(0, 'U') && ok(45 + 2, 'B') && ok(36 + 0, 'L')
-                && ok(45 + 5, 'B') && ok(36 + 3, 'L');
-        default:
-            return false;
-    }
-}
-
-function _cubejsIsZblsTarget(facelets, side) {
-    if (!_cubejsIsUCrossSolvedAligned(facelets)) return false;
-    if (side === 'R') {
-        // 3 slots solved: UFR, UFL, UBL; and UBR NOT solved (RB pair not fully inserted)
-        return _cubejsIsSlotSolved(facelets, 'UFR')
-            && _cubejsIsSlotSolved(facelets, 'UFL')
-            && _cubejsIsSlotSolved(facelets, 'UBL')
-            && !_cubejsIsSlotSolved(facelets, 'UBR');
-    }
-    // side === 'L'
-    return _cubejsIsSlotSolved(facelets, 'UFR')
-        && _cubejsIsSlotSolved(facelets, 'UFL')
-        && _cubejsIsSlotSolved(facelets, 'UBR')
-        && !_cubejsIsSlotSolved(facelets, 'UBL');
-}
-
-function _parseAlgTokens(algStr) {
-    return String(algStr || '').trim().split(/\s+/).filter(Boolean);
-}
-
-function _normalizeAlgSimple(algStr) {
-    return String(algStr || '').trim().replace(/\s+/g, ' ');
-}
-
-async function generateZblsPracticeScramble(side) {
-    const okLoaded = await _ensureCubejsLoaded();
-    if (!okLoaded) return null;
-
-    const cubingFn = window.__randomScrambleForEvent;
-    const getBaseScramble = async () => {
-        if (typeof cubingFn === 'function') {
-            try { return (await cubingFn('333')).toString(); } catch (_) {}
-        }
-        // fallback to internal 3x3 generator (same as normal)
-        const conf = configs['333'];
-        let res = [];
-        let lastAxis = -1, secondLastAxis = -1, lastMoveBase = "";
-        const getMoveAxis = (m) => ("UD".includes(m[0]) ? 0 : ("LR".includes(m[0]) ? 1 : ("FB".includes(m[0]) ? 2 : -1)));
-        for (let i = 0; i < conf.len; i++) {
-            let move, axis, base;
-            while (true) {
-                move = conf.moves[Math.floor(Math.random() * conf.moves.length)];
-                axis = getMoveAxis(move);
-                base = move[0];
-                if (base === lastMoveBase) continue;
-                if (axis !== -1 && axis === lastAxis && axis === secondLastAxis) continue;
-                break;
-            }
-            res.push(move + suffixes[Math.floor(Math.random() * 3)]);
-            secondLastAxis = lastAxis;
-            lastAxis = axis;
-            lastMoveBase = base;
-        }
-        return res.join(' ');
-    };
-
-    // Allowed repair moves (keep it simple and WCA-ish)
-    const repairBases = ['U', 'R', 'F', 'L', 'B', 'D'];
-    const repairSufs  = ["", "'", "2"];
-
-    const MAX_ATTEMPTS = 80;       // try different base scrambles
-    const MAX_REPAIR_DEPTH = 11;   // depth-limited search
-    const MAX_NODES = 25000;       // safety cap
-
-    function applyAlgToCube(cube, algStr) {
-        const toks = _parseAlgTokens(algStr);
-        if (toks.length) cube.move(toks.join(' '));
-    }
-
-    // Depth-limited DFS for a small repair suffix that forces constraints.
-    function findRepair(cube, depth, lastBase, lastAxis, secondLastAxis, nodes) {
-        if (nodes.count > MAX_NODES) return null;
-
-        const facelets = cube.asString();
-        if (_cubejsIsZblsTarget(facelets, side)) return [];
-
-        if (depth === 0) return null;
-
-        for (let b of repairBases) {
-            if (b === lastBase) continue;
-
-            const axis = ("UD".includes(b) ? 0 : ("LR".includes(b) ? 1 : 2));
-            if (axis === lastAxis && axis === secondLastAxis) continue;
-
-            for (let suf of repairSufs) {
-                const mv = b + suf;
-
-                // Try move
-                const next = cube.clone();
-                next.move(mv);
-
-                nodes.count++;
-                const res = findRepair(next, depth - 1, b, axis, lastAxis, nodes);
-                if (res) return [mv, ...res];
-            }
-        }
-        return null;
-    }
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const base = await getBaseScramble();
-
-        const cube = new window.Cube();
-        applyAlgToCube(cube, base);
-
-        // If already matches (rare), done.
-        if (_cubejsIsZblsTarget(cube.asString(), side)) {
-            return _normalizeAlgSimple(base);
-        }
-
-        // Try repair search, increasing depth gradually for responsiveness.
-        let repairMoves = null;
-        for (let d = 6; d <= MAX_REPAIR_DEPTH; d++) {
-            const nodes = { count: 0 };
-            const baseCube = cube.clone();
-            repairMoves = findRepair(baseCube, d, '', -1, -1, nodes);
-            if (repairMoves) break;
-        }
-        if (!repairMoves) continue;
-
-        const full = _normalizeAlgSimple(base + ' ' + repairMoves.join(' '));
-
-        // Final verify on a fresh cube
-        const verify = new window.Cube();
-        applyAlgToCube(verify, full);
-        if (_cubejsIsZblsTarget(verify.asString(), side)) {
-            return full;
-        }
-    }
-
-    return null;
-}
 
 function mirror333Alg(algStr){
     // Safe-ish token mirror: R<->L, F<->B. U/D remain. Also handles wide moves like Rw/Lw, 3Rw/3Lw, etc.
@@ -999,6 +655,272 @@ function mirror333Alg(algStr){
         return `${pre}${face}${w}${suf}`;
     };
     return tokens.map(mapFace).join(' ');
+}
+
+
+/* =========================
+   ZBLS Practice Engine (solver-based, no case alg pool)
+   - 목표: White U / Green F 기준에서
+     U-cross + 3 slots solved, 1 slot unsolved (R: UBR/BR, L: UBL/BL)
+   - 방식: cubejs로 목표 상태를 조각(permutation/orientation) 단위로 생성
+           -> cubejs solver로 solution 산출
+           -> invert(solution) = scramble
+========================= */
+
+let __cubejsLoadPromise = null;
+let __cubejsReady = false;
+let __cubejsSolverInited = false;
+
+function __loadScriptOnce(url, globalName, timeoutMs = 15000) {
+    return new Promise((resolve) => {
+        // already present
+        if (globalName && window[globalName]) return resolve(true);
+
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+
+        const timer = setTimeout(() => {
+            try { s.remove(); } catch (_) {}
+            resolve(false);
+        }, timeoutMs);
+
+        s.onload = () => {
+            clearTimeout(timer);
+            resolve(globalName ? !!window[globalName] : true);
+        };
+        s.onerror = () => {
+            clearTimeout(timer);
+            resolve(false);
+        };
+        document.head.appendChild(s);
+    });
+}
+
+async function __ensureCubejs() {
+    if (__cubejsReady && window.Cube) return true;
+    if (!__cubejsLoadPromise) {
+        // cubejs (ldez/cubejs) - widely used MIT library
+        const CDN = "https://cdn.jsdelivr.net/npm/cubejs@1.3.2/cube.min.js";
+        __cubejsLoadPromise = __loadScriptOnce(CDN, "Cube", 20000).then((ok) => {
+            __cubejsReady = ok;
+            return ok;
+        });
+    }
+    return await __cubejsLoadPromise;
+}
+
+function __invertMove(tok) {
+    if (!tok) return tok;
+    if (tok.endsWith("2")) return tok;      // R2 -> R2
+    if (tok.endsWith("'")) return tok.slice(0, -1); // R' -> R
+    return tok + "'";                       // R -> R'
+}
+function __invertAlg(algStr) {
+    const toks = String(algStr || "").trim().split(/\s+/).filter(Boolean);
+    return toks.reverse().map(__invertMove).join(" ");
+}
+function __shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+function __permParity(perm) {
+    // perm: array mapping position -> piece (0..n-1)
+    const n = perm.length;
+    const seen = new Array(n).fill(false);
+    let parity = 0;
+    for (let i = 0; i < n; i++) {
+        if (seen[i]) continue;
+        let cycleLen = 0;
+        let j = i;
+        while (!seen[j]) {
+            seen[j] = true;
+            j = perm[j];
+            cycleLen++;
+        }
+        if (cycleLen > 0) parity ^= ((cycleLen - 1) & 1);
+    }
+    return parity; // 0 even, 1 odd
+}
+
+// cubejs indexing (standard):
+// corners: 0 URF, 1 UFL, 2 ULB, 3 UBR, 4 DFR, 5 DLF, 6 DBL, 7 DRB
+// edges:   0 UR,  1 UF,  2 UL,  3 UB,  4 DR,  5 DF,  6 DL,  7 DB,  8 FR,  9 FL, 10 BL, 11 BR
+const __ZBLS = {
+    crossEdges: [0, 1, 2, 3], // UR UF UL UB (white cross on U)
+    slots: {
+        UFR: { cornerPos: 0, edgePos: 8 },
+        UFL: { cornerPos: 1, edgePos: 9 },
+        UBL: { cornerPos: 2, edgePos: 10 },
+        UBR: { cornerPos: 3, edgePos: 11 },
+    }
+};
+
+function __buildZblsTargetCube(side) {
+    const Cube = window.Cube;
+    const c = new Cube();
+
+    // Start with solved arrays
+    const cp = [0,1,2,3,4,5,6,7];
+    const co = [0,0,0,0,0,0,0,0];
+    const ep = [0,1,2,3,4,5,6,7,8,9,10,11];
+    const eo = [0,0,0,0,0,0,0,0,0,0,0,0];
+
+    // Determine which 3 slots must be solved
+    const solvedSlots = (side === 'R')
+        ? ['UFR','UFL','UBL']
+        : ['UFR','UFL','UBR'];
+    const unsolvedSlot = (side === 'R') ? 'UBR' : 'UBL';
+
+    // Fixed corner positions/pieces: solvedSlots corners stay solved (pos==piece, ori 0)
+    const fixedCornerPos = new Set(solvedSlots.map(k => __ZBLS.slots[k].cornerPos));
+    // Also: corners not in those positions are free, including the unsolved slot corner.
+    // Fixed edge positions/pieces: cross edges + solvedSlots edges
+    const fixedEdgePos = new Set(__ZBLS.crossEdges.concat(solvedSlots.map(k => __ZBLS.slots[k].edgePos)));
+
+    // Build random corner permutation for free positions
+    const freeCornerPos = [];
+    const freeCornerPieces = [];
+    for (let pos = 0; pos < 8; pos++) if (!fixedCornerPos.has(pos)) freeCornerPos.push(pos);
+    for (let piece = 0; piece < 8; piece++) if (!fixedCornerPos.has(piece)) freeCornerPieces.push(piece);
+    __shuffle(freeCornerPieces);
+    for (let i = 0; i < freeCornerPos.length; i++) cp[freeCornerPos[i]] = freeCornerPieces[i];
+
+    // Corner orientations: random for free corners, but sum mod 3 = 0
+    let sumCo = 0;
+    const freeCornerPosForOri = freeCornerPos.slice();
+    for (let i = 0; i < freeCornerPosForOri.length; i++) {
+        const pos = freeCornerPosForOri[i];
+        if (i === freeCornerPosForOri.length - 1) {
+            co[pos] = (3 - (sumCo % 3)) % 3;
+        } else {
+            const r = Math.floor(Math.random() * 3);
+            co[pos] = r;
+            sumCo += r;
+        }
+    }
+
+    // Build random edge permutation for free positions
+    const freeEdgePos = [];
+    const freeEdgePieces = [];
+    for (let pos = 0; pos < 12; pos++) if (!fixedEdgePos.has(pos)) freeEdgePos.push(pos);
+    for (let piece = 0; piece < 12; piece++) if (!fixedEdgePos.has(piece)) freeEdgePieces.push(piece);
+    __shuffle(freeEdgePieces);
+    for (let i = 0; i < freeEdgePos.length; i++) ep[freeEdgePos[i]] = freeEdgePieces[i];
+
+    // Edge orientations: random for free edges, but sum mod 2 = 0
+    let sumEo = 0;
+    for (let i = 0; i < freeEdgePos.length; i++) {
+        const pos = freeEdgePos[i];
+        if (i === freeEdgePos.length - 1) {
+            eo[pos] = (2 - (sumEo % 2)) % 2;
+        } else {
+            const r = Math.floor(Math.random() * 2);
+            eo[pos] = r;
+            sumEo += r;
+        }
+    }
+
+    // Parity fix: corner parity must match edge parity.
+    const cornerParity = __permParity(cp);
+    const edgeParity = __permParity(ep);
+    if (cornerParity !== edgeParity) {
+        // swap two free edges to flip edge parity (must have at least 2 free edges)
+        if (freeEdgePos.length >= 2) {
+            const p1 = freeEdgePos[0], p2 = freeEdgePos[1];
+            [ep[p1], ep[p2]] = [ep[p2], ep[p1]];
+        } else if (freeCornerPos.length >= 2) {
+            const p1 = freeCornerPos[0], p2 = freeCornerPos[1];
+            [cp[p1], cp[p2]] = [cp[p2], cp[p1]];
+        }
+    }
+
+    // Ensure the designated slot is NOT fully solved (corner+edge in place & oriented)
+    const u = __ZBLS.slots[unsolvedSlot];
+    const slotSolved = (cp[u.cornerPos] === u.cornerPos && co[u.cornerPos] === 0 && ep[u.edgePos] === u.edgePos && eo[u.edgePos] === 0);
+    if (slotSolved) {
+        // perturb by swapping two free edges (safe)
+        if (freeEdgePos.length >= 2) {
+            const p1 = freeEdgePos[0], p2 = freeEdgePos[1];
+            [ep[p1], ep[p2]] = [ep[p2], ep[p1]];
+        } else {
+            // fallback: swap two free corners
+            const p1 = freeCornerPos[0], p2 = freeCornerPos[1];
+            [cp[p1], cp[p2]] = [cp[p2], cp[p1]];
+        }
+    }
+
+    c.cp = cp;
+    c.co = co;
+    c.ep = ep;
+    c.eo = eo;
+
+    return c;
+}
+
+function __isZblsTargetCube(cube, side) {
+    // validate by checking fixed pieces are solved and target slot not fully solved
+    const cp = cube.cp, co = cube.co, ep = cube.ep, eo = cube.eo;
+    // cross edges
+    for (const e of __ZBLS.crossEdges) {
+        if (ep[e] !== e || eo[e] !== 0) return false;
+    }
+    const solvedSlots = (side === 'R')
+        ? ['UFR','UFL','UBL']
+        : ['UFR','UFL','UBR'];
+    const unsolvedSlot = (side === 'R') ? 'UBR' : 'UBL';
+
+    for (const k of solvedSlots) {
+        const s = __ZBLS.slots[k];
+        if (cp[s.cornerPos] !== s.cornerPos || co[s.cornerPos] !== 0) return false;
+        if (ep[s.edgePos] !== s.edgePos || eo[s.edgePos] !== 0) return false;
+    }
+    const u = __ZBLS.slots[unsolvedSlot];
+    const slotSolved = (cp[u.cornerPos] === u.cornerPos && co[u.cornerPos] === 0 && ep[u.edgePos] === u.edgePos && eo[u.edgePos] === 0);
+    if (slotSolved) return false;
+
+    return true;
+}
+
+async function generateZblsPracticeScramble(side) {
+    const ok = await __ensureCubejs();
+    if (!ok || !window.Cube) return null;
+
+    try {
+        if (!__cubejsSolverInited && typeof window.Cube.initSolver === 'function') {
+            // initSolver can be heavy; do it once
+            window.Cube.initSolver();
+            __cubejsSolverInited = true;
+        }
+    } catch (e) {
+        console.warn('[CubeTimer] cubejs solver init failed', e);
+        return null;
+    }
+
+    const MAX_TARGET_TRIES = 200;
+    for (let i = 0; i < MAX_TARGET_TRIES; i++) {
+        const target = __buildZblsTargetCube(side);
+        if (!__isZblsTargetCube(target, side)) continue;
+
+        let sol = '';
+        try {
+            sol = target.solve();
+        } catch (e) {
+            continue;
+        }
+        if (!sol || typeof sol !== 'string') continue;
+
+        const scramble = __invertAlg(sol);
+
+        // final verify (scramble should reproduce target)
+        const check = new window.Cube();
+        try { check.move(scramble); } catch (e) { continue; }
+        if (__isZblsTargetCube(check, side)) return scramble;
+    }
+    return null;
 }
 
 async function generatePracticeScramble(eventId){
@@ -1040,14 +962,14 @@ async function generatePracticeScramble(eventId){
         return res.join(' ');
     };
 
-    // ZBLS: state-constrained scramble (no case-alg pool)
+    // ZBLS: Both (Random) between R/L, using mirror.
     if (eventId === 'prac_zbls') {
         const side = Math.random() < 0.5 ? 'R' : 'L';
         const scr = await generateZblsPracticeScramble(side);
         const out = scr || await fallback333();
         return {
             scramble: out,
-            meta: { practice: 'ZBLS', side, engine: scr ? 'state-repair' : 'fallback' },
+            meta: { practice: 'ZBLS', side, engine: scr ? 'solver' : 'fallback' },
             displayEvent: '333'
         };
     }
