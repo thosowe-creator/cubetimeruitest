@@ -528,7 +528,26 @@
         </button>
     </nav>
 
-    <!-- 외부 스크립트 연결 -->
+    <!-- min2phase.js (Node/CommonJS build) browser shim + loader -->
+    <script>
+        // Some min2phase builds export via CommonJS (module.exports). Browsers don't have `module`,
+        // so we provide a tiny shim. Safe even if the build is already browser-friendly.
+        window.module = window.module || { exports: {} };
+        window.exports = window.exports || window.module.exports;
+    </script>
+    <script src="min2phase.js"></script>
+    <script>
+        // Expose the library consistently.
+        // If min2phase attaches to global, keep it; otherwise grab it from module.exports.
+        if (!window.min2phase && window.module && window.module.exports) {
+            window.min2phase = window.module.exports;
+        }
+        if (!window.Search && window.min2phase && window.min2phase.Search) {
+            window.Search = window.min2phase.Search;
+        }
+    </script>
+
+    <!-- App script (must be after min2phase) -->
     <script src="script.js"></script>
 </body>
 </html>
