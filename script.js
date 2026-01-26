@@ -1964,24 +1964,17 @@ var algdbZBLL = {
     "AS": ["U' R U R' U' L' U2 R U' R' U2 L U' R U2 R'/R U2 R' U R U R' U2 y' R' U' R U R' U R U R' U' R/U' R U R' B' U R U' R' U' B U2 R U2 R'","R U2' R2' F2 U' R2 U' R2' U F2 U R","R' U' R U R2 U L U' R2 U L' U R' U2 R","F2 R2 u' L F2 L' u R2 F U2 F/U2 R' U2 R' U2 F' R U R U' R' F R' U2 R U2 R/U' R U2 R U2' R' U' R' U R F' R U2' R' U2 R' F/U2 r U' r' U2 R' F R U2 F2 U' R U' R' F'","U2 R' F U2 F' R F R' U2 R F'/U' R U R2 D R2 D' R2 U' R2 D R2 D' R/U' R U2' R2 U' R' F' R U R2 U' R' F R U' R'/U R' U R' D U' R D' R' U2 R D R' U' D' R U' R","R' U L U' R2 z' R2 U' L U R2 U' D' z","U R' F R' F' R' U2 R' U2 R2 U2 R U2 F R2 F'","U R U R' U L' U2 R U L U2 R' U L' U L","U R U R' U2 L' U2 R U2 L U L' R' U2 L","U R' U L U' R U' R' L' U L U' R U2 L'","U2 R2 D R' U R D' R' U R' U' R U' R'/U2 L' U R U' L2 U2 R' U R U2 L' R'","U R' U' R U' R' U R' D' R U R' D R2","U' L U' R' U L' U R2 U R2 U R2 U2 R'","U R U2 R' U' F' R U R' U' R' F R2 U' R'/U R L' U2 L2 U L2 U L2 U R' U L'","U2 R U2' R' U2 L' U R U' M' x'","R' U' R U' R' U' L' U2 R U' R' U2 R L","U R U R' U R' F U' R2 U' R2 U F' U R","R' L U' R U L' U' R' U2 L U' R U L'","R U' L U2 R' U R U2 R' U2 L' U' L U' L'","U2 R' U' R U' R2 D' r U2 r' D R2","U2 R' U' R U' R2 D' R U2 R' D R2","U L U L' U L U2 L2 R U R' U' L U2 R U2 R'/U R U2 R' U' F' r U R' U' r' F R2 U' R'","U R' U' R U' R' U y' R' U2 R U' R' U' R B/U R' U' R U' R' U R U' R' U R' F' R U R U' R' F R/F R U R2' U' R U' R U R2' U R2 U' R' U F'","U L U2 L' U2 R' U L2 U' R U L' U' L'","U' R U2 R' U' R U R D R' U2 R D' R2","U2 R' U2 R' F' R U R U' R' F U2 R","U2 L' U' L U F R U2 R' U' x U2 L U r'","U R U2 R D R2 U' R U' R' U2 R2 D' R2","U' L U2 L2 U' L' D L' U' L D' L2 U L' U L","R' U L U' R U L'/U2 L' U R U' L U R'","U2 R U R' U R U L' U R' U L U L' U L","U R2 U' R' U R2 U R' U' R D' R U' R' D","U2 L' U R U' L R U R U R U' R' U' R2","U R U2 R' U' R U2 R F2 R' U R' U' R2 F2 R2","U' L U D' L U' L' U2 D L2 U' L U L","U2 R' U' R F2 R' U R2 U2 R' U R U R' F2","L R U2 R' U' R U2 L' U' R' U' R U' R'","U' R' U L' U R2 U R2 U R2 U2 R' L/U L' U R' U L2 U L2 U L2 U2 L' R","x' M' U' R U L' U2 R' U2 R","U' R U' R' U2 L' U R U' L2 U' R' U L'/R' U' F' R U R' U' R' F R2 U' R' U R/U' R D R' U' R D' R2 U' R U2 R' U' R","U R U R' U R' U' R' D R' U' R D' R U2 R","U L' U R U' L U2 R' U' L' U R U' L R'","U2 R2 D r' U2 r D' R2 U' R U' R'","R' U' R U' R' U2 L' U2 L U L' U2 R U' L","R U2 R' U R U L U' R' U L' U R U' R'","U' R' U' R U R U' R' U2 R L U' R2 U L' U2 R","U2 R2 D R' U2 R D' R2 U' R U' R'","U F R U R2 U2 R2 U R2 U R F'/R U R' F' R U2 R' U2 R' F R2 U' R'","R U2 L' U R' U' L U' R U' R'/R U' R' U2 R U' R' U2 R' D' R U R' D R","U' R U2 R2 U' R2 U' R' F U' R' U' R U F'/U L U' R U' L' R2 U L U' R2 U R' U L'/U' R U' L U' R' L2 U R U' L2 U L' U R'","U2 F R U' R2 U' R U' R' U2 R2 U R' F'/R U R' F' R U2 R' U' R U' R' F R U' R'","L' U' L U' R U' L' U R' U2 L/U2 R' U' R U' L U' R' U L' U2 R/U' R D R' U R D' R' U2 R' U' R U2 R' U' R","U2 R' U' R2 U' L U2 R' U R U2 R2 L' U2 R","R U2 R' U' R U L' U L U2 R' U' L' U2 L","U R' U2 L U' R U L' R' U R U' R' U2 R","U' R U2 R' U' R U R' L' U R U' L U2 R'","U R U R' U L' U2 R U2 L U2 L' R' U2 L","U' F R U R' U' R U R' F R' F' R U' F'","U2 R U L' U R U' L U' R U' R U R' U2 R2","U L R U2 R' U' L' U2 R' U L U' R2 U R' U L'","U' R2 U' R U' R2 U R2 U' R' U R2 U R2/U2 R U' R' U R U2 R U2' R' U' R U' R2' U' R U R'/R' U' R U' R' U R U' R U R2 U R U' R U' R'/U R U R2' F' R U R U R' U2 R' F R2 U' R'","U R2 U R2 U R U2 R' U R U R U' R2/U2 R U R' U R' U' R' U R U' R' U' R' U' R' U2 R","U' R2 F2 R' U2 R' U' R U' R F2 R2/R' U' R U' R' U' R' U' R' U' R' U R U R2","U R2 U' R' U R U R' U2 R' U R2 U R2/U R U R' U' R U R2 U' R2 U' R' U R U' R' U R' U R","R' U' R2 U R2 U R2 U2 R2 U2 R","U R U2 R' U' R U' R'","R U2 R2 U2 R2 U R2 U R2 U' R'","R' U' R U' R' U2 R","U R U2 R2 U' R' U' R' U R U R2 U' R'/U R U R' U' R' U' R U R U' R' U' R' U R","R' U' R U' R2 U' R' U' R2 U R U R2/U R' U' R U R U2 R' U' R' U R U' R U' R'","U2 R U R' U R' U' R2 U' R2 U2 R","U R U' R2 U' R U' R' U2 R' U2 R' U' R U' R2/U R U2 R' U' R U' R' U' R' U R' U' R' U' R' U R U R2"],
     "H": ["x' M' U' R U' R' U R U2 L' U R' U2 R/U2 R U R' U' R' F R U R U' R' F' R U R' U R U2 R'/L R' U' R U' R' U R U2 L' U R' U2 R/R' F R U R' U' R' F' R U R2 U2 R' U' R U' R'","R' L U L' U L U' L' U2 R U' L U2 L'/U2 L' R U R' U R U' R' U2 L U' R U2 R'/U' R U R' U R U2 R' U' R2 D R' U R D' R' U' R'/U2 F' U' L' U L F R U R' U' R' F R F'","U L' U2 L2 F' U L2 U L2 U' F U' L'/U R U R D R' U R' U' R U R2 D' R U' R U' R'/R U2 R' U' R U' R D' R U' R' D R U R/R U2 R' U' R U' l' U R D R' U' R D' R' x'","U' R U2' R2' F U' R2 U' R2' U F' U R/U R' D R2 U' R2' D' R U' R' D R2 U2' R2' D' R/U2 R' U2 R U R' U R' D R' U R D' R' U' R'/U R' U' R' D' R U' R U R' U' R2 D R' U R' U R","U' R B' R' B U2 R2 F' r U' r' F2 R2/U' l U' R' U x U2' R2' F' r U' r' F2 R2/U R U2 R' U L' U2 R U2' R' U2 L R U' R'/U L' U L2 F2 L' U2 L' U2 L F2 U L' U2 L","U' R U' R2' F2 R U2 R U2' R' F2 U' R U2 R'/U' R' F R F' U2 x' R2 U L' U L U2 R2 x/U R' U2 R U' L U2 R' U2 R U2 L' R' U R/L' U R2 D R' U2 R D' R' U L U R'","U' F R U R' U' R' F' U2 R U R' U R2 U2 R'/U2 R' U' R U' R' U R U R' F R U R' U' R' F' R2","U2 F R U' R' U R U2 R' U' R U R' U' F'","R' F R U R' U' F' R U' R' U R' F R F' U R/U2 R U2 R2 U' R2 U' R' U' L' U R' U' L U' R/R F R2 U' R2' U' R2 U2' R2' U' F' R'/R U L U' R2 U' R2' U' R2 U2' R2 L' U' R'","U' R' U2 R U2' R2 F' R U R U' R' F U R/U L' U2 M' x' D R2 U R2 u' R2 B/U' R' U2 L R U2' R' U R U2' L' U R' U R","F B' R2 B R2 U' R2 U' R2 U R2 F'/U' L' U2 L R U2 L' U' R' U2 L U' R U' R'/U' z U' R2 U D R2 U' R' D' R2 U R' D R' D'/U F' R U2 R' U2 R' F R U R U R' U' R U' R'","F U' R U2 R' U2 R U' R' U' R U R' U F'/R' U2 R2 U R2 U R U L U' R U L' U R'/L' F' L2' U L2 U L2' U2 L2 U F L/R2 U R' U R' U' R2 U' R2 U' F' R U R' U' R' F R","U2 R2 D R' U R D' R2' U R2 D R' U2 R D' R2'/U' L U' R U L' U2 R' U R U R' U' R U R'/U' R' U2 R U R' U' F' R U R' U' R' F R U2 R/L U2 R' U L' U L U L' U' L U' R U2 L'","U R' U2 R2 U R D' R U R' D R' U2 R'/U2 R2 D R' U2 R D' R U' R2' U' R2 U2 R/U' z U' R2 U2 R U L' U R U' L U' R2 U'/U' L' U2 L2 U L D' L U L' D L' U2 L'","U2 R2 D' R U' R' D R2 U' R2 D' R U2 R' D R2/U L' U R' U' L U2 R U' R' U' R U R' U' R/R' U2 R U R' U R2 y R U' R' U' R U2 R' U' F'/U' R' U L' U' R U2 L U' L' U' L U L' U' L","U' R U2 R2 U' R' D R' U' R D' R U2 R/U2 R2 D' R U2 R' D R' U R2 U R2 U2 R'/U R' U2 R U R2' D' R U' R' D R2 U R' U R","U2 R U R' U R' U' R2 U' R2 U' L U' R U L'/L U L' U L' U' L2 U' L2 U' R U' L U R'/R' U2 R' D' R2 D2 R' U R D2 R' U R' D R2","U2 R' U' R U' R U R2 U R2 U L' U R' U' L/R' U' R2 U R' U' R2 U' R2 L' U R' U' M'/U2 R U2 R D R2' D2 R U' R' D2 R U' R D' R2'/L' U' L U' L U L2' U L2 U R' U L' U' R","D R' U' R D' R U' R' U2 R U2 R U R U' R2/U R U R' U' R' U2 R U R2 D' R U R' D R' U2 R'/U R U R' U' R' U2 R2 D R' U R D' R2 U R2 U2 R'/U R U R' U' L' U2 R U2 R' U L U' r' F2 r","U R U R' U R U2 R' F R U' R' U' R U2 R' U' F'/U2 R2' D' r U2 r' D R' U R2 U R2 U2 R'/U R U' L U L2' R' U2 L U L' U L U L U' L'/U' L U' R U R2' L' U2 R U R' U R U R U' R'","R' U' R U' R' U' L U' R U L'/U2 L' U' L U' L' U' R U' L U R'/R' F' R U2 R U2' R' F U' R U' R'","R U R' U R U L' U R' U' L/R U R' U R U r' F R' F' r/U R' F R U R' U' R' F' R U' R U R' U R","U R' F R' F' R2 U' r' U r U' r' U' r/U l' U R' U' x' R2 U' r' U r U' r' U' r/U R U' L' U R2' U' R L U2 R' U' R/U R U R' U R U2 R D' R U' R' D R U R","U' l U' R U R' l' U r U' r' U r U r'/U' R' U L U' R2 U R' L' U2 R U R'/U' R' U' R U' R' U2 R' D R' U R D' R' U' R'/U' R U R2 F R F' r U' r' U r U r'","F U' R2 U R U2 R' U R2 U2 R' U' R F'/U' R' U' R y U' R U' R' U R l U' R' U l'","U' R U R' U R U2 R' L' U2 R U' R' U2 L R U' R'/U R U' R2 U' F2 U' R2 U R2 U F2 R2 U R'/z U L' U R2 U' R U R' U' R U2 R U R' U2 L U'/z U R2 U' R' U R' F R y' R' U R' U' R2 B' R' U'","U F R U R' U' R U R' U' R U R' U' F'/U F U R U' R' U R U' R' U R U' R' F'","x' U' R U' R' U R' F2 R U' R U R' U x/R U' L' U R' U' L R U' L' U R' U' L/U R' F R' F' R F' U2 F R' F R F' R/x U R' U R U' l U2 l' U R' U' R U' x'","R U R' U R U2 R2 U2 L U' R U L' U R' U R/U F' R' F2 R U2 F' U2 F U2 F L F' L' F2/R' U2 R U R' U R U' R U2 R' L' U R U' L U2 R'/x' R' U' R2 U x U2' R' U2 R U2' l D R' D' R2","R' U' R U' R' U2 R2 U2 L' U R' U' L U' R U' R'/R U' R' U R U R' U' L U L' U' R U R' U2 L U L'/x U R' U' l R U' R U2' R U2' R' U2 x U R2 U' R'/R U2 R' U' R2 F2 U2 R' U' R U' F2 R' U' R'","U' R' U' R U' R' U2 R U R' U' R L U2 R' U' R U2 L'/U R U' R2 F2 U' R2 U' R2 U F2 U R2 U R'/U' R' U' R U' R' U2 R L U2 R' U R U2 L' R' U R/U' R' U' R U' R' U2 R U R' U' R U R' F' R U R' U' R' F R2","U' R U R' U y' R' U R U' R2 F R F' R/F R' U R U2' R2' U' R U2' R' U' R2' U F'/U' R U R' U y L' U L U' r' L' U L U' r","R U R' U R U' R' U R U2 R'","R' U' R U' R' U R U' R' U2 R","U' R' U2 R U R' U' R U R' U R","U' R U2 R' U' R U R' U' R U' R'","U' R' U2 R U R' U R U R U R' U R U2 R'/U' R U2 R2 U2 R' U2 R U2 R' U2 R2 U2 R","U R U2 R' U' R U' R' U' R' U' R U' R' U2 R/R L F2' L' R U2' R2' F U2' y' R' U2 R' U2' R' U2 R/r R U2' r' R U2' R' l' U2 y U' R2 U' R2' U' R2 U' R2' U/r R U2' r' R U2' R' l' U2 d' R2 U' R2' U' R2 U' R2' U","U2 R' U' R U' R' U2 R U R U2 R' U' R U' R'/R U R' U R U2 R' U' R' U2 R U R' U R/R' U' R' r2 U' R' U R' r2 U' r' U2 r","R' F R U R' F R U' R' F' R U' R' F R U R' F R U' R' F' R/R U R' U R U' R' U R U' R' U R' U' R2 U' R' U R' U R/R U' R' U' R U R' U R U R' U' R U' R' U' R U R' U R U R'/R U R' U R U' R' U R2 U R U R U' R' U' R' U R'"],
 };
-var F2L = {
-    "F2L": ["U R U' R' / R' F R F' / U2 R U2 R' / U2 R' F R F' U2 R' F R F' ","y U' L' U L / F R' F' R / y' U' R' U R / r U R' U' M ","y L' U' L / F' U' F / y' R' U' R / U M R U' R' U M' ","R U R' / R U' R2 F R F' R U2 R' / R' D' r U r' D R2 U R' / U2 L R U' R' U L' ","U' R U R' U2 R U' R' / U' R U R' U' R U2 R' / U' R U R' U R' F R F' / F2 L' U' L U F2 ","d R' U' R U2 R' U R / y U L' U' L U2 L' U L / d R' U' R U R' U2 R / U' r U' R' U R U r' ","U' R U2 R' U2 R U' R' / U' R U2 R' U' R U2 R' / U' R U2 R' U R' F R F' / M' U' M U2 r U' r' ","d R' U2 R U2 R' U R / r' U2 R2 U R2' U r / d R' U2 R U R' U2 R / y U L' U2 L U2 L' U L ","U' R U' R' U F' U' F / F R U R' U' F' R U' R' / U' R U' R' d R' U' R / y' U R' U' R U' R' U' R ","U' R U R' U R U R' / U y' R' U R U' y R U R' / U2 R U' R' U' R U R' / d R' U R d' R U R' ","U' R U2 R' U F' U' F / U' R U2 R' d R' U' R / y' R U2 R2 U' R2 U' R' / R U' R' U R U' R2 F R F' R U' R' ","R U' R' U R U' R' U2 R U' R' / R' U2 R2 U R2 U R / U F' U2 F U' R U R' / U R U' R' U' R U R' U' R U R' ","y' U R' U R U' R' U' R / d R' U R U' R' U' R / M' U' R U R' U' R U2 r' / U R U' R' U R U' R' U' F' U F ","U' R U' R' U R U R' / y L' U2 L U2 F U2 F' U F U' F' / R U' R' U R U2 R' U2 R U' R' ","R U R' U2 R U' R' U R U' R' / y L' U L U2 y' R U R' / R U2 R' U R U R' U R U' R' / y' R' U R U2 y R U R' ","R U' R' U2 F' U' F / R U' R' U2 y L' U' L / R2 B' R' B R' U2 R U' R' / U F R U R' U' F' U R U' R' ","R U2 R' U' R U R' / U' R U' R' U2 R U2 R2 F R F' / y L F' L' F L' U L U' L' U L ","y' R' U2 R U R' U' R / R' F R F' R U' R' U R U' R' / y L' U2 L U L' U' L / R U R' U' R U R' U' F R' F' R ","U R U2 R' U R U' R' / R U' R' U R U' R' U R U R' / U R U2 R2 F R F' / y U F U2 F2 L F L' ","y' U' R' U2 R U' R' U R / y U' L' U2 L U' L' U L / y L' U L U' L' U L U' L' U' L / y' R' U R U' R' U R U' R' U' R ","R U' R' U2 R U R' / U2 R U R' U R U' R' / y F R U2' R' F' / U2 R U R2 F R F' ","F' L' U2 L F / y' R' U R U2 R' U' R / r U' r' U2 r U r' / y L' U L U2 L' U' L ","R U R' U2 R U R' U' R U R' / U R U' R' U' R U' R' U R U' R' / U2 R2 U2 R' U' R U' R2 / U R U' R' U' R U' R2 F R F' ","F U R U' R' F' R U' R' / y U' L' U L U L' U L U' L' U L / U' R U R2' F R F' R U' R' / U' R U R' U R U' R' U y' R' U R ","R' F' R U R U' R' F / R' U' R' U' R' U R U R / y U' L' U L y' U R U' R' / U' R' F R F' R U R' ","U R U' R' U' F' U F / y r U r' U' r' F r F' / U R U' R' F R' F' R / U R U' R' d' L' U L ","R U' R' U R U' R' / R U' R2 F R F' / y L' U' L U2 F U' F' ","y L' U L U' L' U L / y' R' U R U' R' U R / R U R' U' F R' F' R / R U R' U2 F' U F ","R' F R F' R' F R F' / y' R' U' R U R' U' R / y L' U' L U L' U' L / M' U R U' r' U R U' R' ","R U R' U' R U R' / F R' F' R F R' F' R / y U' L' U' L U2 F U2 F' U F U' F' ","U' R' F R F' R U' R' / l F' R U' R' U l' / R U' R' y L' U2 L / U' R' F R F' U' R' F R F' ","R U R' U' R U R' U' R U R' / U R U' R' U R U' R' U R U' R' / y L' U' L U L' U' L U L' U' L / R2 U R2' U R2 U2' R2 ","U' R U' R' U2 R U' R' / U' R U' R' U R' F R F' / U' R U' R' U' R U2 R' / y R' D R U' R' D' R ","U R U R' U2 R U R' / U' R U2' R' U R U R' / y U L' U L U2 L' U L / y' U R' U R U2' R' U R ","U' R U R' U F' U' F / U M' U R U' r' R U' R' / U2 R U R' F R' F' R / U' l U' R U l' U R' ","U2 R' F R F' U2 R U R' / U F' U' F U' R U R' / R2 u R U R' U' u' R' U R' / y U L' U' L y' U' R U R' ","R2 U2 F R2 F' U2 R' U R' / R U' R' d R' U2 R U2' R' U R / R U R' U2' R U2 R' U F' U' F / R' F R F' R U' R' U R U' R' U2 R U' R' ","R U R' U' R U2 R' U' R U R' / R2 U2 R' U' R U' R' U2 R' / R U' R' U' R U R' U2 R U' R' / F R' F' R2 U2 R' U' R U R' ","R U R' U2 R U' R' U R U R' / R U' R' U R U2 R' U R U' R' / R U2 R' U R U' R' U R U R' / R U2 R U R' U R U2 R2 ","R U' R' F R U R' U' F' R U' R' / r U' r' U2 r U r' R U R' / F' L' U2 L F R U R' / R F U R U' R' F' U' R' ","R U R' U' R U' R' U2 y' R' U' R / R U F R U R' U' F' R' / R U' R' F' L' U2 L F / R U' M' U' r' U2 r U r' "],
-};
 /* --- End Alg-Trainer alg lists (subset, MIT) --- */
 
 
 // --- Practice state ---
-const PRACTICE_EVENTS = {
-  'p_f2l': { label: 'F2L', cubeEvent: '333' },
-  'p_oll': { label: 'OLL', cubeEvent: '333' },
+const PRACTICE_EVENTS = {  'p_oll': { label: 'OLL', cubeEvent: '333' },
   'p_pll': { label: 'PLL', cubeEvent: '333' },
   'p_zbls': { label: 'ZBLS', cubeEvent: '333' },
   'p_zbll': { label: 'ZBLL', cubeEvent: '333' },
 };
 // Register practice events in configs (so the app doesn't early-return)
-Object.assign(configs, {
-  'p_f2l': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
-  'p_oll': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
+Object.assign(configs, {  'p_oll': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
   'p_pll': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
   'p_zbls': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
   'p_zbll': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
@@ -2097,6 +2090,7 @@ function _cleanAlg(s) {
     if (parts.length) str = parts[_randInt(parts.length)];
   }
   return str
+    .replace(/[()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -2271,73 +2265,7 @@ function _generateAlgScramble(rawAlg, opts = {}) {
   return _cleanAlg(scramble);
 }
 
-// --- F2L (cross-only) ---
-// Approach: take a full random 3x3 scramble, solve it, then prepend the inverse of the shortest prefix
-// of the solution that makes the D-cross solved.
-function _isDCrossSolved(c) {
-  // D layer edge positions: DR=4 DF=5 DL=6 DB=7
-  const DR = 4, DF = 5, DL = 6, DB = 7;
-  return (
-    c.ep[DR] === DR && c.eo[DR] === 0 &&
-    c.ep[DF] === DF && c.eo[DF] === 0 &&
-    c.ep[DL] === DL && c.eo[DL] === 0 &&
-    c.ep[DB] === DB && c.eo[DB] === 0
-  );
-}
-function _splitAlgMoves(algText) {
-  return _cleanAlg(algText).split(' ').filter(Boolean);
-}
-function _joinMoves(moves) {
-  return _cleanAlg(moves.join(' '));
-}
-async function _generateF2LCrossOnlyScramble() {
-  // use cubing.js if possible for randomness
-  const cubingFn = window.__randomScrambleForEvent;
-  let base = '';
-  try {
-    if (typeof cubingFn === 'function') {
-      const algObj = await cubingFn('333');
-      base = String(algObj.toString());
-    }
-  } catch (e) {}
-  if (!base) {
-    // fallback internal 3x3
-    const conf = configs['333'];
-    base = generateScrambleFromConfig(conf);
-  }
-
-  const cube = new Cube();
-  cube.move(base);
-
-  let sol;
-  try {
-    sol = cube.solve(); // solution string
-  } catch (e) {
-    // in rare case solver fails, just return base
-    return base;
-  }
-
-  const solMoves = _splitAlgMoves(sol);
-  const tmp = cube.clone();
-  const prefix = [];
-  for (const mv of solMoves) {
-    tmp.move(mv);
-    prefix.push(mv);
-    if (_isDCrossSolved(tmp)) break;
-    // Guard: if we go too long, stop (avoid huge prefix)
-    if (prefix.length > 25) break;
-  }
-
-  // Prepend inverse(prefix) to base
-  const invPrefix = invertAlg(_joinMoves(prefix));
-  return _cleanAlg(invPrefix + ' ' + base);
-}
-
-async function generatePracticeScrambleText() {
-  if (currentEvent === 'p_f2l') {
-    return await _generateF2LCrossOnlyScramble();
-  }
-  const raw = _pickRandomAlgFromSet(currentEvent);
+async function generatePracticeScrambleText() {  const raw = _pickRandomAlgFromSet(currentEvent);
   if (!raw) return '';
 
   // Alg-Trainer algs often contain wide (u/r/l/...) and slice (M/E/S) moves.

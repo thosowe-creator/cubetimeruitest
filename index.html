@@ -470,9 +470,7 @@
                                 <option value="333mbf">Multi-BLD</option>
                             </optgroup>
                         
-                            <optgroup label="Practice">
-                                <option value="p_f2l">F2L</option>
-                                <option value="p_oll">OLL</option>
+                            <optgroup label="Practice">                                <option value="p_oll">OLL</option>
                                 <option value="p_pll">PLL</option>
                                 <option value="p_zbls">ZBLS</option>
                                 <option value="p_zbll">ZBLL</option>
@@ -490,7 +488,8 @@
                         <button onclick="switchCategory('blind')" id="cat-blind" class="category-btn px-6 py-2.5 text-xs font-bold rounded-full transition-colors text-slate-500 dark:text-slate-400">Blind</button>
                         <button onclick="switchCategory(\'practice\')" id="cat-practice" class="category-btn px-6 py-2.5 text-xs font-bold rounded-full transition-colors text-slate-500 dark:text-slate-400">Practice</button>
                     </div>
-                    <div class="bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex overflow-x-auto max-w-full custom-scroll">
+                    <div class="flex items-center gap-2 w-full">
+                        <div id="eventTabScroll" class="bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex overflow-x-auto max-w-full custom-scroll flex-1">
                         <div id="group-standard" class="flex gap-1">
                             <button onclick="changeEvent('333')" class="event-tab active px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-333">3x3</button>
                             <button onclick="changeEvent('222')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-222">2x2</button>
@@ -514,12 +513,12 @@
                             <button onclick="changeEvent('555bf')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-555bf">5BLD</button>
                             <button onclick="changeEvent('333mbf')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-333mbf">Multi-BLD</button>
                         </div>
-                        <div id="group-practice" class="hidden flex gap-1">
-                            <button onclick="changeEvent('p_f2l')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_f2l">F2L</button>
-                            <button onclick="changeEvent('p_oll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_oll">OLL</button>
+                        <div id="group-practice" class="hidden flex gap-1">                            <button onclick="changeEvent('p_oll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_oll">OLL</button>
                             <button onclick="changeEvent('p_pll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_pll">PLL</button>
                             <button onclick="changeEvent('p_zbls')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_zbls">ZBLS</button>
                             <button onclick="changeEvent('p_zbll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_zbll">ZBLL</button>
+                        </div>
+
                         </div>
 
                         <!-- Case selector (only for ZBLS/ZBLL) -->
