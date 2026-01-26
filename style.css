@@ -100,6 +100,31 @@ body {
 .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 .dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
 
+/* =========================
+   Light Theme Variables
+   (Dark mode is untouched)
+   ========================= */
+:root{
+  --ct-accent-rgb: 59 130 246;
+  --ct-bg-rgb: 248 250 252;
+  --ct-card-rgb: 255 255 255;
+  --ct-text-rgb: 15 23 42;
+  --ct-scramble-rgb: 255 255 255;
+}
+
+html:not(.dark) body{
+  background-color: rgb(var(--ct-bg-rgb)) !important;
+  color: rgb(var(--ct-text-rgb)) !important;
+}
+
+html:not(.dark) .scramble-box{
+  background-color: rgb(var(--ct-scramble-rgb)) !important;
+}
+
+html:not(.dark) .bg-white{
+  background-color: rgb(var(--ct-card-rgb)) !important;
+}
+
 /* Switch Toggle */
 .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -107,11 +132,13 @@ body {
 .dark .slider { background-color: #475569; }
 .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: #3b82f6; }
+html:not(.dark) input:checked + .slider { background-color: rgb(var(--ct-accent-rgb)); }
 input:checked + .slider:before { transform: translateX(20px); }
 
 /* Range Slider */
 input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+html:not(.dark) input[type=range]::-webkit-slider-thumb { background: rgb(var(--ct-accent-rgb)); }
 input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e2e8f0; border-radius: 2px; }
 .dark input[type=range]::-webkit-slider-runnable-track { background: #475569; }
 
@@ -295,11 +322,15 @@ body.no-scroll { overflow: hidden; }
 .tool-option { padding: 10px 16px; font-size: 12px; font-weight: 700; color: #64748b; text-align: left; transition: all 0.2s; }
 .dark .tool-option { color: #94a3b8; }
 .tool-option:hover { background: #f1f5f9; color: #3b82f6; }
+html:not(.dark) .tool-option:hover { color: rgb(var(--ct-accent-rgb)); }
 .dark .tool-option:hover { background: #334155; color: #60a5fa; }
 .tool-option.active { color: #3b82f6; background: #eff6ff; }
+html:not(.dark) .tool-option.active { color: rgb(var(--ct-accent-rgb)); }
 .dark .tool-option.active { color: #60a5fa; background: #172554; }
 .category-btn.active { background-color: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2); }
+html:not(.dark) .category-btn.active { background-color: rgb(var(--ct-accent-rgb)); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
 .event-tab.active { background-color: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2); }
+html:not(.dark) .event-tab.active { background-color: rgb(var(--ct-accent-rgb)); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
 
 /* Status Colors */
 .text-ready { color: #10b981 !important; transform: scale(1.02); } 
@@ -603,190 +634,3 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
 #historyList{ padding-bottom: 0; }
 }
 
-
-
-/* =======================
-   Light Theme Customizer
-   - Uses CSS vars set by script.js
-   - Dark mode untouched (only applies to :root:not(.dark))
-   ======================= */
-:root {
-  --ct-accent-rgb: 37 99 235;
-  --ct-bg-rgb: 248 250 252;
-  --ct-panel-rgb: 255 255 255;
-  --ct-scramble-rgb: 255 255 255;
-  --ct-text-rgb: 30 41 59;
-  --ct-border-rgb: 226 232 240;
-}
-
-:root:not(.dark) body{
-  background: rgb(var(--ct-bg-rgb)) !important;
-  color: rgb(var(--ct-text-rgb)) !important;
-}
-
-/* Panels / cards / modals that use bg-white in light mode */
-:root:not(.dark) .bg-white{
-  background-color: rgb(var(--ct-panel-rgb)) !important;
-}
-
-/* Generic borders that are meant to be subtle */
-:root:not(.dark) .border-slate-100,
-:root:not(.dark) .border-slate-200{
-  border-color: rgb(var(--ct-border-rgb)) !important;
-}
-
-/* Accent: buttons/badges/links that use tailwind blue */
-:root:not(.dark) .bg-blue-600,
-:root:not(.dark) .bg-blue-500{
-  background-color: rgb(var(--ct-accent-rgb)) !important;
-}
-:root:not(.dark) .text-blue-500,
-:root:not(.dark) .text-blue-600{
-  color: rgb(var(--ct-accent-rgb)) !important;
-}
-:root:not(.dark) .border-blue-100,
-:root:not(.dark) .border-blue-200,
-:root:not(.dark) .border-blue-500{
-  border-color: rgb(var(--ct-accent-rgb) / 0.25) !important;
-}
-
-/* Scramble box (requested as one of the 5 categories) */
-:root:not(.dark) #scrambleBox{
-  background-color: rgb(var(--ct-scramble-rgb)) !important;
-  border: 1px solid rgb(var(--ct-border-rgb)) !important;
-}
-
-/* Timer number */
-:root:not(.dark) .timer-display{
-  color: rgb(var(--ct-text-rgb)) !important;
-}
-
-/* Range sliders: make thumb match accent (light mode only) */
-:root:not(.dark) input[type=range]::-webkit-slider-thumb{
-  background: rgb(var(--ct-accent-rgb)) !important;
-}
-:root:not(.dark) input[type=range]::-moz-range-thumb{
-  background: rgb(var(--ct-accent-rgb)) !important;
-  border: none;
-}
-:root:not(.dark) input[type=range]::-webkit-slider-runnable-track{
-  background: rgb(var(--ct-border-rgb)) !important;
-}
-:root:not(.dark) input[type=range]::-moz-range-track{
-  background: rgb(var(--ct-border-rgb)) !important;
-}
-
-/* Small preview dots look nicer */
-#themeAccentPreview,#themeBgPreview,#themePanelPreview,#themeScramblePreview,#themeTextPreview{
-  flex: 0 0 auto;
-}
-
-
-/* ------------------------------
-   Light-mode Theme (RGB sliders)
-   - Dark mode is intentionally untouched.
----------------------------------*/
-:root:not(.dark) {
-  --ct-bg-app: rgb(248, 250, 252);
-  --ct-bg-panel: rgb(255, 255, 255);
-  --ct-border: rgb(226, 232, 240);
-
-  --ct-text-primary: rgb(15, 23, 42);
-  --ct-text-secondary: rgb(71, 85, 105);
-  --ct-text-muted: rgb(148, 163, 184);
-
-  --ct-bg-scramble: rgb(241, 245, 249);
-  --ct-border-scramble: rgb(226, 232, 240);
-  --ct-text-scramble: rgb(30, 41, 59);
-
-  --ct-warning: rgb(234, 179, 8);
-  --ct-danger: rgb(220, 38, 38);
-
-  /* Derived surface for subtle inner blocks */
-  --ct-bg-panel-sub: color-mix(in srgb, var(--ct-bg-panel) 88%, #ffffff);
-}
-
-/* Global overrides (light mode only) */
-:root:not(.dark) body {
-  background: var(--ct-bg-app) !important;
-  color: var(--ct-text-primary) !important;
-}
-:root:not(.dark) header {
-  background: var(--ct-bg-panel) !important;
-  border-color: var(--ct-border) !important;
-}
-:root:not(.dark) header h1,
-:root:not(.dark) #settingsTitle,
-:root:not(.dark) .text-slate-700 {
-  color: var(--ct-text-primary) !important;
-}
-:root:not(.dark) .text-slate-600 { color: var(--ct-text-secondary) !important; }
-:root:not(.dark) .text-slate-500,
-:root:not(.dark) .text-slate-400 { color: var(--ct-text-muted) !important; }
-
-/* Panels / cards / modals */
-:root:not(.dark) .bg-white { background-color: var(--ct-bg-panel) !important; }
-:root:not(.dark) .bg-slate-50 { background-color: var(--ct-bg-panel-sub) !important; }
-:root:not(.dark) .border-slate-200,
-:root:not(.dark) .border-slate-100 { border-color: var(--ct-border) !important; }
-
-/* Scramble box */
-:root:not(.dark) #scrambleBox {
-  background-color: var(--ct-bg-scramble) !important;
-  border-color: var(--ct-border-scramble) !important;
-}
-:root:not(.dark) #scramble { color: var(--ct-text-scramble) !important; }
-:root:not(.dark) #scrambleDiagram,
-:root:not(.dark) #scrambleDiagramSkeleton {
-  background-color: color-mix(in srgb, var(--ct-bg-scramble) 92%, #ffffff) !important;
-  border-color: var(--ct-border-scramble) !important;
-}
-
-/* Status colors (used in a few places) */
-:root:not(.dark) .penalty-btn.active-plus2 { background-color: color-mix(in srgb, var(--ct-warning) 18%, #ffffff) !important; border-color: color-mix(in srgb, var(--ct-warning) 35%, #ffffff) !important; color: color-mix(in srgb, var(--ct-warning) 80%, #000000) !important; }
-:root:not(.dark) .penalty-btn.active-dnf { background-color: color-mix(in srgb, var(--ct-danger) 16%, #ffffff) !important; border-color: color-mix(in srgb, var(--ct-danger) 30%, #ffffff) !important; color: color-mix(in srgb, var(--ct-danger) 80%, #000000) !important; }
-
-/* Theme editor UI */
-.theme-section {
-  padding: 0.75rem;
-  border-radius: 1rem;
-  background: var(--ct-bg-panel-sub);
-  border: 1px solid var(--ct-border);
-}
-.dark .theme-section { background: #1e293b; border-color: #334155; }
-
-.theme-row {
-  padding: 0.75rem;
-  border-radius: 0.9rem;
-  background: rgba(255,255,255,0.6);
-  border: 1px solid var(--ct-border);
-  margin-top: 0.5rem;
-}
-.dark .theme-row { background: #0f172a; border-color: #334155; }
-
-.theme-row-top { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
-.theme-preview { width: 22px; height: 22px; border-radius: 7px; border: 1px solid var(--ct-border); box-shadow: 0 1px 2px rgba(0,0,0,0.06); flex: 0 0 auto; }
-.dark .theme-preview { border-color: #334155; }
-
-.theme-label { font-size: 0.75rem; font-weight: 800; color: var(--ct-text-secondary); }
-.dark .theme-label { color: #cbd5e1; }
-.theme-value { font-size: 0.65rem; font-weight: 800; color: var(--ct-text-muted); margin-top: 0.1rem; }
-.dark .theme-value { color: #94a3b8; }
-
-.theme-sliders { display: grid; gap: 0.45rem; }
-.theme-slider-line { display: flex; align-items: center; gap: 0.5rem; }
-.theme-slider-line span { width: 14px; font-size: 0.7rem; font-weight: 900; color: var(--ct-text-muted); }
-.dark .theme-slider-line span { color: #94a3b8; }
-
-.theme-reset-btn {
-  padding: 0.35rem 0.6rem;
-  border-radius: 0.75rem;
-  background: rgba(255,255,255,0.65);
-  border: 1px solid var(--ct-border);
-  font-size: 0.65rem;
-  font-weight: 900;
-  color: var(--ct-text-secondary);
-  transition: transform 0.1s, background 0.15s;
-}
-.theme-reset-btn:active { transform: scale(0.97); }
-.dark .theme-reset-btn { background: #0f172a; border-color: #334155; color: #cbd5e1; }

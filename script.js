@@ -793,10 +793,6 @@ function toggleDarkMode(checkbox) {
     const isDark = checkbox.checked;
     document.documentElement.classList.toggle('dark', isDark);
     saveData();
-    // Re-apply light theme vars when returning to light mode
-    if (!isDark) {
-        try { applyThemeLightToDocument(); } catch (_) {}
-    }
     if(activeTool === 'graph') renderHistoryGraph();
 }
 // --- Wake Lock ---
@@ -2246,223 +2242,6 @@ const interactiveArea = document.getElementById('timerInteractiveArea');
 interactiveArea.addEventListener('touchstart', handleStart, { passive: false });
 interactiveArea.addEventListener('touchend', handleEnd, { passive: false });
 // [UPDATED] Toggle Settings: Acts as open/close toggle
-
-/* =======================
-   Light Theme (RGB) + Theme "tab" inside Settings
-   - Dark mode is intentionally untouched.
-   - Applies only to light mode via CSS :root:not(.dark) overrides.
-   ======================= */
-
-const THEME_LIGHT_STORAGE_KEY = 'ct_theme_light_v2';
-
-/**
- * Keys map to CSS vars in style.css:
- *  --ct-bg-app, --ct-bg-panel, --ct-border
- *  --ct-text-primary, --ct-text-secondary, --ct-text-muted
- *  --ct-bg-scramble, --ct-border-scramble, --ct-text-scramble
- *  --ct-warning, --ct-danger
- */
-const DEFAULT_LIGHT_THEME_V2 = {
-  'bg-app':         [248, 250, 252],
-  'bg-panel':       [255, 255, 255],
-  'border':         [226, 232, 240],
-
-  'text-primary':   [15, 23, 42],
-  'text-secondary': [71, 85, 105],
-  'text-muted':     [148, 163, 184],
-
-  'bg-scramble':     [241, 245, 249],
-  'border-scramble': [226, 232, 240],
-  'text-scramble':   [30, 41, 59],
-
-  'warning':        [234, 179, 8],
-  'danger':         [220, 38, 38],
-};
-
-function clamp255(v){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(255, Math.round(n)));
-}
-
-function deepCopyTheme(obj){
-  const out = {};
-  for (const k in obj) out[k] = [...obj[k]];
-  return out;
-}
-
-function loadThemeLightV2(){
-  try{
-    const raw = localStorage.getItem(THEME_LIGHT_STORAGE_KEY);
-    if (!raw) return deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
-    const parsed = JSON.parse(raw);
-    const theme = deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
-    for (const k in theme){
-      const arr = parsed?.[k];
-      if (Array.isArray(arr) && arr.length === 3){
-        theme[k] = [clamp255(arr[0]), clamp255(arr[1]), clamp255(arr[2])];
-      }
-    }
-    return theme;
-  } catch(_){
-    return deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
-  }
-}
-
-function saveThemeLightV2(theme){
-  try{ localStorage.setItem(THEME_LIGHT_STORAGE_KEY, JSON.stringify(theme)); } catch(_){}
-}
-
-let themeLight = loadThemeLightV2();
-
-function applyThemeLightToDocument(){
-  // Dark mode: never touch visuals
-  if (document.documentElement.classList.contains('dark')) return;
-
-  const root = document.documentElement;
-  const set = (varName, rgbArr) => {
-    const [r,g,b] = rgbArr;
-    root.style.setProperty(varName, `rgb(${r}, ${g}, ${b})`);
-  };
-
-  set('--ct-bg-app', themeLight['bg-app']);
-  set('--ct-bg-panel', themeLight['bg-panel']);
-  set('--ct-border', themeLight['border']);
-
-  set('--ct-text-primary', themeLight['text-primary']);
-  set('--ct-text-secondary', themeLight['text-secondary']);
-  set('--ct-text-muted', themeLight['text-muted']);
-
-  set('--ct-bg-scramble', themeLight['bg-scramble']);
-  set('--ct-border-scramble', themeLight['border-scramble']);
-  set('--ct-text-scramble', themeLight['text-scramble']);
-
-  set('--ct-warning', themeLight['warning']);
-  set('--ct-danger', themeLight['danger']);
-}
-
-function rgbString(arr){
-  const [r,g,b] = arr;
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-function updateThemeRowUI(key){
-  try{
-    const pv = document.getElementById(`preview-${key}`);
-    const val = document.getElementById(`value-${key}`);
-    if (pv) pv.style.backgroundColor = rgbString(themeLight[key]);
-    if (val) val.textContent = rgbString(themeLight[key]);
-  } catch(_){}
-}
-
-function syncThemeUIFromState(){
-  // Set slider values + previews for all rows currently in DOM
-  try{
-    const inputs = document.querySelectorAll('#settingsThemeView input[type="range"][data-key][data-ch]');
-    inputs.forEach(inp => {
-      const key = inp.getAttribute('data-key');
-      const ch = inp.getAttribute('data-ch');
-      const idx = ch === 'r' ? 0 : ch === 'g' ? 1 : 2;
-      if (!themeLight[key]) return;
-      inp.value = String(themeLight[key][idx]);
-    });
-
-    Object.keys(DEFAULT_LIGHT_THEME_V2).forEach(updateThemeRowUI);
-  } catch(_){}
-}
-
-function onThemeSliderInput(e){
-  const el = e?.target;
-  if (!el) return;
-  const key = el.getAttribute('data-key');
-  const ch = el.getAttribute('data-ch');
-  if (!key || !ch || !themeLight[key]) return;
-
-  const idx = ch === 'r' ? 0 : ch === 'g' ? 1 : 2;
-  themeLight[key][idx] = clamp255(el.value);
-
-  updateThemeRowUI(key);
-  saveThemeLightV2(themeLight);
-  applyThemeLightToDocument();
-}
-
-// Exposed helpers for buttons in HTML
-window.resetThemeColorLight = (key) => {
-  if (!DEFAULT_LIGHT_THEME_V2[key]) return;
-  themeLight[key] = [...DEFAULT_LIGHT_THEME_V2[key]];
-  saveThemeLightV2(themeLight);
-  applyThemeLightToDocument();
-  syncThemeUIFromState();
-};
-
-window.resetThemeCategoryLight = (keys) => {
-  if (!Array.isArray(keys)) return;
-  for (const k of keys){
-    if (DEFAULT_LIGHT_THEME_V2[k]) themeLight[k] = [...DEFAULT_LIGHT_THEME_V2[k]];
-  }
-  saveThemeLightV2(themeLight);
-  applyThemeLightToDocument();
-  syncThemeUIFromState();
-};
-
-window.resetAllThemeLight = () => {
-  themeLight = deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
-  saveThemeLightV2(themeLight);
-  applyThemeLightToDocument();
-  syncThemeUIFromState();
-};
-
-window.openThemeSettings = () => {
-  try{
-    const main = document.getElementById('settingsMainView');
-    const theme = document.getElementById('settingsThemeView');
-    const backBtn = document.getElementById('themeBackBtn');
-    const title = document.getElementById('settingsTitle');
-    const resetAllBtn = document.getElementById('themeResetAllBtn');
-
-    if (main) main.classList.add('hidden');
-    if (theme) theme.classList.remove('hidden');
-    if (backBtn) backBtn.classList.remove('hidden');
-    if (resetAllBtn) resetAllBtn.classList.remove('hidden');
-    if (title) title.textContent = 'Theme';
-
-    syncThemeUIFromState();
-
-    // Attach listeners once
-    if (!window.__themeSliderBound){
-      window.__themeSliderBound = true;
-      document.getElementById('settingsThemeView')?.addEventListener('input', (ev) => {
-        if (ev.target && ev.target.matches('input[type="range"][data-key][data-ch]')) onThemeSliderInput(ev);
-      });
-    }
-  } catch(_){}
-};
-
-window.closeThemeSettings = () => {
-  try{
-    const main = document.getElementById('settingsMainView');
-    const theme = document.getElementById('settingsThemeView');
-    const backBtn = document.getElementById('themeBackBtn');
-    const title = document.getElementById('settingsTitle');
-    const resetAllBtn = document.getElementById('themeResetAllBtn');
-
-    if (theme) theme.classList.add('hidden');
-    if (main) main.classList.remove('hidden');
-    if (backBtn) backBtn.classList.add('hidden');
-    if (resetAllBtn) resetAllBtn.classList.add('hidden');
-    if (title) title.textContent = 'Settings';
-  } catch(_){}
-};
-
-// Apply on load (light mode only). If currently dark, it will apply when switching back to light.
-applyThemeLightToDocument();
-
-// Keep UI synced when settings opens
-function ensureThemeUIReady(){
-  try { syncThemeUIFromState(); } catch (_) {}
-  try { window.closeThemeSettings(); } catch (_) {}
-}
-
 window.openSettings = () => { 
     if (isRunning) return;
     const overlay = document.getElementById('settingsOverlay');
@@ -2471,7 +2250,6 @@ window.openSettings = () => {
     } else {
         overlay.classList.add('active'); 
         setTimeout(()=>document.getElementById('settingsModal').classList.remove('scale-95','opacity-0'), 10); 
-        try { ensureThemeUIReady(); } catch (_) {} 
     }
 };
 window.closeSettings = () => { document.getElementById('settingsModal').classList.add('scale-95','opacity-0'); setTimeout(()=>document.getElementById('settingsOverlay').classList.remove('active'), 200); saveData(); };
@@ -2526,6 +2304,177 @@ document.getElementById('clearHistoryBtn').onclick = () => {
     resetPenalty();
   };
 };
+
+/* =========================
+   Theme Settings (Light mode only)
+   - Dark mode is not modified
+   ========================= */
+const THEME_STORAGE_KEY = 'cubeTimerLightThemeV1';
+const LIGHT_THEME_DEFAULTS = {
+  accent: [59, 130, 246],      // #3B82F6
+  bg: [248, 250, 252],         // #F8FAFC
+  card: [255, 255, 255],       // #FFFFFF
+  text: [15, 23, 42],          // #0F172A
+  scramble: [255, 255, 255],   // #FFFFFF
+};
+
+let lightTheme = structuredClone(LIGHT_THEME_DEFAULTS);
+
+function clamp255(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.min(255, Math.max(0, Math.round(x)));
+}
+
+function rgbToHex([r, g, b]) {
+  const to = (v) => v.toString(16).padStart(2, '0').toUpperCase();
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+function loadLightTheme() {
+  try {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    if (!raw) return structuredClone(LIGHT_THEME_DEFAULTS);
+    const parsed = JSON.parse(raw);
+    const next = {};
+    for (const k of Object.keys(LIGHT_THEME_DEFAULTS)) {
+      const v = parsed?.[k];
+      if (Array.isArray(v) && v.length === 3) {
+        next[k] = [clamp255(v[0]), clamp255(v[1]), clamp255(v[2])];
+      } else {
+        next[k] = structuredClone(LIGHT_THEME_DEFAULTS[k]);
+      }
+    }
+    return next;
+  } catch (_) {
+    return structuredClone(LIGHT_THEME_DEFAULTS);
+  }
+}
+
+function saveLightTheme() {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(lightTheme));
+  } catch (_) {}
+}
+
+function applyLightTheme() {
+  const root = document.documentElement;
+  const setRGB = (name, rgb) => {
+    root.style.setProperty(name, `${rgb[0]} ${rgb[1]} ${rgb[2]}`);
+  };
+  setRGB('--ct-accent-rgb', lightTheme.accent);
+  setRGB('--ct-bg-rgb', lightTheme.bg);
+  setRGB('--ct-card-rgb', lightTheme.card);
+  setRGB('--ct-text-rgb', lightTheme.text);
+  setRGB('--ct-scramble-rgb', lightTheme.scramble);
+}
+
+function setThemeSliderUI(part) {
+  const rgb = lightTheme[part];
+  if (!rgb) return;
+
+  const ids = {
+    r: `theme${part[0].toUpperCase() + part.slice(1)}R`,
+    g: `theme${part[0].toUpperCase() + part.slice(1)}G`,
+    b: `theme${part[0].toUpperCase() + part.slice(1)}B`,
+    rv: `theme${part[0].toUpperCase() + part.slice(1)}RVal`,
+    gv: `theme${part[0].toUpperCase() + part.slice(1)}GVal`,
+    bv: `theme${part[0].toUpperCase() + part.slice(1)}BVal`,
+    preview: `theme${part[0].toUpperCase() + part.slice(1)}Preview`,
+    hex: `theme${part[0].toUpperCase() + part.slice(1)}Hex`,
+  };
+
+  const rEl = document.getElementById(ids.r);
+  const gEl = document.getElementById(ids.g);
+  const bEl = document.getElementById(ids.b);
+  const rvEl = document.getElementById(ids.rv);
+  const gvEl = document.getElementById(ids.gv);
+  const bvEl = document.getElementById(ids.bv);
+  const pEl = document.getElementById(ids.preview);
+  const hEl = document.getElementById(ids.hex);
+
+  if (rEl) rEl.value = String(rgb[0]);
+  if (gEl) gEl.value = String(rgb[1]);
+  if (bEl) bEl.value = String(rgb[2]);
+  if (rvEl) rvEl.textContent = String(rgb[0]);
+  if (gvEl) gvEl.textContent = String(rgb[1]);
+  if (bvEl) bvEl.textContent = String(rgb[2]);
+  const hex = rgbToHex(rgb);
+  if (hEl) hEl.textContent = hex;
+  if (pEl) pEl.style.backgroundColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+}
+
+function syncAllThemeUI() {
+  for (const k of Object.keys(LIGHT_THEME_DEFAULTS)) setThemeSliderUI(k);
+}
+
+window.updateThemeFromSliders = (part) => {
+  if (!LIGHT_THEME_DEFAULTS[part]) return;
+  const cap = part[0].toUpperCase() + part.slice(1);
+  const r = document.getElementById(`theme${cap}R`);
+  const g = document.getElementById(`theme${cap}G`);
+  const b = document.getElementById(`theme${cap}B`);
+  if (!r || !g || !b) return;
+  lightTheme[part] = [clamp255(r.value), clamp255(g.value), clamp255(b.value)];
+  applyLightTheme();
+  saveLightTheme();
+  setThemeSliderUI(part);
+};
+
+window.resetThemePart = (part) => {
+  if (!LIGHT_THEME_DEFAULTS[part]) return;
+  lightTheme[part] = structuredClone(LIGHT_THEME_DEFAULTS[part]);
+  applyLightTheme();
+  saveLightTheme();
+  setThemeSliderUI(part);
+};
+
+window.resetAllThemeLight = () => {
+  lightTheme = structuredClone(LIGHT_THEME_DEFAULTS);
+  applyLightTheme();
+  saveLightTheme();
+  syncAllThemeUI();
+};
+
+window.openThemeSettings = () => {
+  const main = document.getElementById('settingsMainView');
+  const theme = document.getElementById('themeSettingsView');
+  const back = document.getElementById('themeBackBtn');
+  const resetAll = document.getElementById('themeResetAllBtn');
+  const title = document.getElementById('settingsTitle');
+
+  if (main) main.classList.add('hidden');
+  if (theme) theme.classList.remove('hidden');
+  if (back) back.classList.remove('hidden');
+  if (resetAll) resetAll.classList.remove('hidden');
+  if (title) title.textContent = 'Theme';
+  syncAllThemeUI();
+  // keep scroll at top when entering theme view
+  const sc = document.getElementById('settingsScroll');
+  if (sc) sc.scrollTop = 0;
+};
+
+window.closeThemeSettings = () => {
+  const main = document.getElementById('settingsMainView');
+  const theme = document.getElementById('themeSettingsView');
+  const back = document.getElementById('themeBackBtn');
+  const resetAll = document.getElementById('themeResetAllBtn');
+  const title = document.getElementById('settingsTitle');
+
+  if (theme) theme.classList.add('hidden');
+  if (main) main.classList.remove('hidden');
+  if (back) back.classList.add('hidden');
+  if (resetAll) resetAll.classList.add('hidden');
+  if (title) title.textContent = 'Settings';
+  // restore scroll top as well
+  const sc = document.getElementById('settingsScroll');
+  if (sc) sc.scrollTop = 0;
+};
+
+// init theme once per load
+lightTheme = loadLightTheme();
+applyLightTheme();
+
 loadData();
 applyLanguageToUI();
 changeEvent(currentEvent);
