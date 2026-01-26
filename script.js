@@ -2103,8 +2103,10 @@ function setCaseSelectorVisible(visible, options = null) {
 
 function refreshPracticeUI() {
   ensureCaseSelectorDOM();
-  const isP = isPracticeEvent(currentEvent);
-  const options = isP ? getPracticeCaseOptions(currentEvent) : null;
+  // Show case selector whenever the current event has case options (ZBLS/ZBLL),
+  // even if PRACTICE_EVENTS or other metadata is out of sync.
+  const eventId = String(currentEvent || '').trim();
+  const options = getPracticeCaseOptions(eventId);
   setCaseSelectorVisible(!!options, options);
 }
 
@@ -3092,6 +3094,8 @@ function switchCategory(cat, autoSelectFirst = true) {
     }
 }
 function changeEvent(e) {
+  // Normalize incoming event id (guards against stray whitespace from HTML/select values)
+  e = String(e || '').trim();
   ensureCaseSelectorDOM();
     if (isRunning) return;
     currentEvent = e;
