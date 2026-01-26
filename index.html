@@ -255,7 +255,7 @@
 	                
                 <!-- Practice scramble sources -->
                 <div class="pt-3">
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-slate-600 mb-2">라이센스</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-slate-600 mb-2">라이센스 / License</p>
                     <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                         <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
                             Practice scrambles (F2L/OLL/PLL/ZBLS/ZBLL) use alg data & scramble approach adapted from <span class="font-black">Alg-Trainer</span> by Tao Yu (MIT License).
@@ -525,10 +525,9 @@
                         <!-- Case selector (only for ZBLS/ZBLL) -->
                         <div id="caseSelectWrap" class="hidden shrink-0 flex items-center gap-2 pl-2 pr-2">
                             <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Case</span>
-                            <select id="caseSelect" onchange="changePracticeCase(this.value)" class="bg-slate-50 dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-blue-400 transition-all">
-                                <option value="any">Random</option>
-                            </select>
-                        </div>
+                            <div id="caseTabs" class="flex items-center gap-1 overflow-x-auto max-w-[46vw] pr-1"></div>
+                            <select id="caseSelect" onchange="changePracticeCase(this.value)" class="hidden"></select>
+</div>
 
                     </div>
                 </div>

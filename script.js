@@ -1995,41 +1995,89 @@ function isPracticeEvent(eventId) {
 
 window.changePracticeCase = (val) => {
   currentPracticeCase = val || 'any';
+  // Sync UI state for tabs/select
+  updateCaseTabActive();
+  const sel = document.getElementById('caseSelect');
+  if (sel) sel.value = currentPracticeCase;
   if (isPracticeEvent(currentEvent)) generateScramble();
 };
 
 function getPracticeCaseOptions(eventId) {
   if (eventId === 'p_zbls') {
     // keys: "1".."41"
-    return ['any', ...Object.keys(ZBLS)];
+    const keys = Object.keys(ZBLS || {}).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
+    return ['any', ...keys];
   }
   if (eventId === 'p_zbll') {
-    // subsets: "T","U","L","S","A","E","F","H","J","K","N","O","P","Q","R","V","W","Y","Z"
-    return ['any', ...Object.keys(algdbZBLL)];
+    // subsets: T, U, L, ... H (and any other keys present in the dataset)
+    const keys = Object.keys(algdbZBLL || {});
+    const preferred = ['T','U','L','S','AS','A','E','F','G','H','PI'];
+    keys.sort((a,b) => {
+      const ia = preferred.indexOf(a);
+      const ib = preferred.indexOf(b);
+      if (ia !== -1 || ib !== -1) {
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      }
+      return String(a).localeCompare(String(b));
+    });
+    return ['any', ...keys];
   }
   return null;
+}
+
+function updateCaseTabActive() {
+  const tabs = document.getElementById('caseTabs');
+  if (!tabs) return;
+  tabs.querySelectorAll('button.case-tab').forEach(btn => {
+    const key = btn.getAttribute('data-case');
+    if ((key || 'any') === (currentPracticeCase || 'any')) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+}
+
+function renderCaseTabs(options) {
+  const tabs = document.getElementById('caseTabs');
+  if (!tabs) return;
+  tabs.innerHTML = '';
+  (options || ['any']).forEach(k => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'case-tab';
+    btn.setAttribute('data-case', k);
+    btn.textContent = (k === 'any') ? ((currentLang === 'ko') ? '랜덤' : 'Random') : String(k);
+    btn.onclick = () => window.changePracticeCase(k);
+    tabs.appendChild(btn);
+  });
+  updateCaseTabActive();
 }
 
 function setCaseSelectorVisible(visible, options = null) {
   const wrap = document.getElementById('caseSelectWrap');
   const sel = document.getElementById('caseSelect');
-  if (!wrap || !sel) return;
+  const tabs = document.getElementById('caseTabs');
+  if (!wrap) return;
   if (!visible) {
     wrap.classList.add('hidden');
+    if (tabs) tabs.innerHTML = '';
     return;
   }
-  // Populate
-  sel.innerHTML = '';
-  (options || ['any']).forEach(k => {
-    const opt = document.createElement('option');
-    opt.value = k;
-    opt.textContent = (k === 'any') ? ((currentLang === 'ko') ? '랜덤' : 'Random') : String(k);
-    sel.appendChild(opt);
-  });
+  // Populate tabs
+  renderCaseTabs(options || ['any']);
   // Keep selection if possible
   const exists = (options || []).includes(currentPracticeCase);
-  sel.value = exists ? currentPracticeCase : 'any';
-  currentPracticeCase = sel.value;
+  currentPracticeCase = exists ? currentPracticeCase : 'any';
+  // Sync hidden <select> for fallback/compat
+  if (sel) {
+    sel.innerHTML = '';
+    (options || ['any']).forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = (k === 'any') ? ((currentLang === 'ko') ? '랜덤' : 'Random') : String(k);
+      sel.appendChild(opt);
+    });
+    sel.value = currentPracticeCase;
+  }
+  updateCaseTabActive();
   wrap.classList.remove('hidden');
 }
 
@@ -2041,74 +2089,17 @@ function refreshPracticeUI() {
 
 // --- Route 1 scramble builders (adapted from Alg-Trainer RubiksCube.js) ---
 function _cleanAlg(s) {
-  return String(s || '')
+  // Alg-Trainer datasets sometimes include multiple variants separated by '/'.
+  // For display/diagram we must choose a single variant because '/' is not a valid alg character for cubing.js.
+  let str = String(s || '');
+  if (str.includes('/')) {
+    const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+    if (parts.length) str = parts[_randInt(parts.length)];
+  }
+  return str
     .replace(/\s+/g, ' ')
     .trim();
 }
-
-/**
- * Convert alg text (including practice notation like u/r/l and M/E/S) into a form
- * accepted by <scramble-display> (cubing.js parser).
- * - Keeps the original scramble text untouched for display.
- * - Used ONLY for the diagram attribute to avoid parseAlg errors.
- */
-function normalizeAlgForDiagram(algText) {
-  let s = String(algText || '').replace(/\n/g, ' ');
-  // Ensure separators around parentheses/brackets if any slipped in (defensive)
-  s = s.replace(/([()\[\]{},])/g, ' $1 ').replace(/\s+/g, ' ').trim();
-  if (!s) return s;
-
-  const tokens = s.split(' ').filter(Boolean);
-  const out = [];
-  for (const t0 of tokens) {
-    const t = t0.trim();
-    if (!t) continue;
-
-    // Wide moves in lowercase -> standard wide notation
-    // e.g., u, u', u2 -> Uw, Uw', Uw2
-    const mWideLower = t.match(/^([udlrfb])(2|')?$/);
-    if (mWideLower) {
-      const face = mWideLower[1];
-      const suf = mWideLower[2] || '';
-      const map = { u:'Uw', d:'Dw', l:'Lw', r:'Rw', f:'Fw', b:'Bw' };
-      out.push(map[face] + suf);
-      continue;
-    }
-
-    // Slice moves -> wide + face to isolate slice.
-    // Derivations:
-    //   Rw R' = M'  => M  = Rw' R
-    //   Uw U' = E'  => E  = Uw' U
-    //   Fw F' = S   => S' = Fw' F
-    const mSlice = t.match(/^([MES])(2|')?$/);
-    if (mSlice) {
-      const slice = mSlice[1];
-      const suf = mSlice[2] || '';
-      const pushSeq = (seq) => out.push(...seq.split(' ').filter(Boolean));
-
-      if (slice === 'M') {
-        if (suf === "'") pushSeq("Rw R'");
-        else if (suf === "2") pushSeq("Rw2 R2");
-        else pushSeq("Rw' R");
-      } else if (slice === 'E') {
-        if (suf === "'") pushSeq("Uw U'");
-        else if (suf === "2") pushSeq("Uw2 U2");
-        else pushSeq("Uw' U");
-      } else if (slice === 'S') {
-        if (suf === "'") pushSeq("Fw' F");
-        else if (suf === "2") pushSeq("Fw2 F2");
-        else pushSeq("Fw F'");
-      }
-      continue;
-    }
-
-    // Most other tokens are fine (R, U, x, y, z, Uw, etc.)
-    out.push(t);
-  }
-
-  return out.join(' ').replace(/\s+/g, ' ').trim();
-}
-
 
 // --- Practice alg helpers (string-level, no cube simulation) ---
 // We only use these for practice events (F2L/OLL/PLL/ZBLS/ZBLL) so we don't touch normal scramble logic.
@@ -2136,7 +2127,55 @@ function _invertAlgString(algText) {
 // - slice moves M/E/S => wide + face combos (no slice tokens needed)
 // This conversion is ONLY for the scramble image (diagram). Text display stays original.
 function _practiceAlgForDiagram(algText) {
-  return normalizeAlgForDiagram(algText);
+  const parts = _cleanAlg(algText).split(' ').filter(Boolean);
+  const out = [];
+  const invSuffix = (s) => (s === "'") ? '' : (s === '2' ? '2' : "'");
+  const parse = (tok) => {
+    const m = tok.match(/^([A-Za-z]+)(2|')?$/);
+    if (!m) return { base: tok, suf: '' };
+    return { base: m[1], suf: m[2] || '' };
+  };
+  const wideMap = { u: 'Uw', d: 'Dw', l: 'Lw', r: 'Rw', f: 'Fw', b: 'Bw' };
+
+  for (const tok of parts) {
+    const { base, suf } = parse(tok);
+    // Lowercase single-face = wide move
+    if (base.length === 1 && wideMap[base]) {
+      out.push(wideMap[base] + suf);
+      continue;
+    }
+    // Slice moves -> (wide + face) decomposition
+    if (base === 'M') {
+      // M  = Rw' R
+      // M' = R' Rw
+      // M2 = R2 Rw2
+      if (suf === "'") out.push("R'", 'Rw');
+      else if (suf === '2') out.push('R2', 'Rw2');
+      else out.push("Rw'", 'R');
+      continue;
+    }
+    if (base === 'E') {
+      // E  = Uw' U
+      // E' = U' Uw
+      // E2 = U2 Uw2
+      if (suf === "'") out.push("U'", 'Uw');
+      else if (suf === '2') out.push('U2', 'Uw2');
+      else out.push("Uw'", 'U');
+      continue;
+    }
+    if (base === 'S') {
+      // S  = F' Fw
+      // S' = Fw' F
+      // S2 = F2 Fw2
+      if (suf === "'") out.push("Fw'", 'F');
+      else if (suf === '2') out.push('F2', 'Fw2');
+      else out.push("F'", 'Fw');
+      continue;
+    }
+    // Keep anything else (R, U, x, y, z, Rw, etc.)
+    out.push(base + suf);
+  }
+  return _cleanAlg(out.join(' '));
 }
 function _randInt(n) { return Math.floor(Math.random() * n); }
 
