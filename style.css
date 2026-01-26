@@ -601,51 +601,82 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   }
 }
 #historyList{ padding-bottom: 0; }
-
-/* --- Timer background tint (pastel presets) --- */
-body.has-timer-bg #timerInteractiveArea{
-  background-color: var(--timer-bg, transparent);
-}
-.dark body.has-timer-bg #timerInteractiveArea{
-  background-color: var(--timer-bg-dark, transparent);
-}
-body.has-timer-bg #timerInteractiveArea:hover{
-  background-color: var(--timer-bg-hover, var(--timer-bg, transparent));
-}
-.dark body.has-timer-bg #timerInteractiveArea:hover{
-  background-color: var(--timer-bg-dark-hover, var(--timer-bg-dark, transparent));
 }
 
-.timer-bg-swatch{
-  width: 28px;
-  height: 28px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  background: var(--timer-bg-preview, repeating-linear-gradient(45deg, rgba(148,163,184,0.35) 0 4px, rgba(148,163,184,0.15) 4px 8px));
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+
+
+/* =======================
+   Light Theme Customizer
+   - Uses CSS vars set by script.js
+   - Dark mode untouched (only applies to :root:not(.dark))
+   ======================= */
+:root {
+  --ct-accent-rgb: 37 99 235;
+  --ct-bg-rgb: 248 250 252;
+  --ct-panel-rgb: 255 255 255;
+  --ct-scramble-rgb: 255 255 255;
+  --ct-text-rgb: 30 41 59;
+  --ct-border-rgb: 226 232 240;
 }
 
-.timer-bg-palette-panel{
-  padding: 0.75rem;
-  border-radius: 1.25rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(8px);
-}
-.dark .timer-bg-palette-panel{
-  border-color: rgba(71,85,105,0.55);
-  background: rgba(15,23,42,0.35);
+:root:not(.dark) body{
+  background: rgb(var(--ct-bg-rgb)) !important;
+  color: rgb(var(--ct-text-rgb)) !important;
 }
 
-.timer-bg-choice{
-  width: 34px;
-  height: 34px;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-  transition: transform 0.12s, box-shadow 0.12s;
+/* Panels / cards / modals that use bg-white in light mode */
+:root:not(.dark) .bg-white{
+  background-color: rgb(var(--ct-panel-rgb)) !important;
 }
-.timer-bg-choice:hover{ transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.10); }
-.timer-bg-choice:active{ transform: translateY(0px) scale(0.98); }
-.timer-bg-choice.selected{ outline: 3px solid rgba(99,102,241,0.55); outline-offset: 2px; }
 
+/* Generic borders that are meant to be subtle */
+:root:not(.dark) .border-slate-100,
+:root:not(.dark) .border-slate-200{
+  border-color: rgb(var(--ct-border-rgb)) !important;
+}
+
+/* Accent: buttons/badges/links that use tailwind blue */
+:root:not(.dark) .bg-blue-600,
+:root:not(.dark) .bg-blue-500{
+  background-color: rgb(var(--ct-accent-rgb)) !important;
+}
+:root:not(.dark) .text-blue-500,
+:root:not(.dark) .text-blue-600{
+  color: rgb(var(--ct-accent-rgb)) !important;
+}
+:root:not(.dark) .border-blue-100,
+:root:not(.dark) .border-blue-200,
+:root:not(.dark) .border-blue-500{
+  border-color: rgb(var(--ct-accent-rgb) / 0.25) !important;
+}
+
+/* Scramble box (requested as one of the 5 categories) */
+:root:not(.dark) #scrambleBox{
+  background-color: rgb(var(--ct-scramble-rgb)) !important;
+  border: 1px solid rgb(var(--ct-border-rgb)) !important;
+}
+
+/* Timer number */
+:root:not(.dark) .timer-display{
+  color: rgb(var(--ct-text-rgb)) !important;
+}
+
+/* Range sliders: make thumb match accent (light mode only) */
+:root:not(.dark) input[type=range]::-webkit-slider-thumb{
+  background: rgb(var(--ct-accent-rgb)) !important;
+}
+:root:not(.dark) input[type=range]::-moz-range-thumb{
+  background: rgb(var(--ct-accent-rgb)) !important;
+  border: none;
+}
+:root:not(.dark) input[type=range]::-webkit-slider-runnable-track{
+  background: rgb(var(--ct-border-rgb)) !important;
+}
+:root:not(.dark) input[type=range]::-moz-range-track{
+  background: rgb(var(--ct-border-rgb)) !important;
+}
+
+/* Small preview dots look nicer */
+#themeAccentPreview,#themeBgPreview,#themePanelPreview,#themeScramblePreview,#themeTextPreview{
+  flex: 0 0 auto;
+}

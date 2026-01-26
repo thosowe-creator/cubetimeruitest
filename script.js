@@ -27,16 +27,6 @@ let inspectionPenalty = null; // null, '+2', 'DNF'
 let hasSpoken8 = false;
 let hasSpoken12 = false;
 let lastStopTimestamp = 0;
-
-// Timer background tint (pastel presets)
-const TIMER_BG_PRESETS = [
-  '#FCE7F3', '#FBCFE8', '#FDE2E4', '#FFE4E6', '#FFE8CC',
-  '#FFF1CC', '#FFF7CC', '#ECFCCB', '#D9F99D', '#DCFCE7',
-  '#BBF7D0', '#CCFBF1', '#CFFAFE', '#BAE6FD', '#DBEAFE',
-  '#E0E7FF', '#E9D5FF', '#F3E8FF', '#EDE9FE', '#E2E8F0'
-];
-let timerBgColor = null; // hex string, or null for default
-const TIMER_BG_STORAGE_KEY = 'timerBgColor';
 // i18n (Korean / English)
 let currentLang = (localStorage.getItem('lang') || '').toLowerCase();
 if (currentLang !== 'ko' && currentLang !== 'en') {
@@ -139,9 +129,6 @@ const AUTO_I18N_PAIRS = [
   { en: 'WCA Inspection', ko: 'WCA 인스펙션' },
   { en: '15s countdown + voice', ko: '15초 카운트다운 + 음성' },
   { en: 'Hold Duration', ko: '홀드 시간' },
-  { en: 'Timer Background', ko: '타이머 배경' },
-  { en: 'Pastel tint behind timer', ko: '타이머 뒤 배경 톤' },
-  { en: 'Default', ko: '기본' },
 
   // History footer
   { en: 'Avg of All', ko: '전체 평균' },
@@ -445,11 +432,6 @@ const wakeLockToggle = document.getElementById('wakeLockToggle');
 const holdDurationSlider = document.getElementById('holdDurationSlider');
 const holdDurationValue = document.getElementById('holdDurationValue');
 const inspectionToggle = document.getElementById('inspectionToggle');
-// Timer background preset UI (optional - null guard)
-const timerBgSetting = document.getElementById('timerBgSetting');
-const timerBgSwatch = document.getElementById('timerBgSwatch');
-const timerBgPalette = document.getElementById('timerBgPalette');
-const timerBgPaletteGrid = document.getElementById('timerBgPaletteGrid');
 const scrambleDiagram = document.getElementById('scrambleDiagram');
 const eventSelect = document.getElementById('eventSelect');
 // Scramble Loading UI Elements (optional: null guard)
@@ -813,108 +795,6 @@ function toggleDarkMode(checkbox) {
     saveData();
     if(activeTool === 'graph') renderHistoryGraph();
 }
-
-// --- Timer Background (pastel presets) ---
-function hexToRgb(hex) {
-    if (!hex) return null;
-    const h = String(hex).replace('#', '').trim();
-    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return { r, g, b };
-}
-
-function rgbToRgba(rgb, a) {
-    if (!rgb) return 'transparent';
-    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
-}
-
-function applyTimerBgColor(hex) {
-    if (!document.body) return;
-
-    const root = document.documentElement;
-    if (!hex) {
-        document.body.classList.remove('has-timer-bg');
-        root.style.removeProperty('--timer-bg');
-        root.style.removeProperty('--timer-bg-hover');
-        root.style.removeProperty('--timer-bg-dark');
-        root.style.removeProperty('--timer-bg-dark-hover');
-        if (timerBgSwatch) timerBgSwatch.style.removeProperty('--timer-bg-preview');
-        return;
-    }
-
-    const rgb = hexToRgb(hex);
-    if (!rgb) {
-        applyTimerBgColor(null);
-        return;
-    }
-
-    document.body.classList.add('has-timer-bg');
-    // Keep it subtle
-    root.style.setProperty('--timer-bg', rgbToRgba(rgb, 0.18));
-    root.style.setProperty('--timer-bg-hover', rgbToRgba(rgb, 0.24));
-    root.style.setProperty('--timer-bg-dark', rgbToRgba(rgb, 0.10));
-    root.style.setProperty('--timer-bg-dark-hover', rgbToRgba(rgb, 0.14));
-    if (timerBgSwatch) timerBgSwatch.style.setProperty('--timer-bg-preview', hex);
-}
-
-function renderTimerBgPalette() {
-    if (!timerBgPaletteGrid) return;
-    timerBgPaletteGrid.innerHTML = '';
-    TIMER_BG_PRESETS.forEach((hex) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'timer-bg-choice';
-        btn.style.background = hex;
-        btn.setAttribute('aria-label', hex);
-        if (timerBgColor && timerBgColor.toLowerCase() === hex.toLowerCase()) {
-            btn.classList.add('selected');
-        }
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setTimerBgColor(hex);
-            closeTimerBgPalette();
-        });
-        timerBgPaletteGrid.appendChild(btn);
-    });
-}
-
-function closeTimerBgPalette() {
-    if (timerBgPalette) timerBgPalette.classList.add('hidden');
-}
-
-window.toggleTimerBgPalette = (e) => {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    if (!timerBgPalette) return;
-    const willOpen = timerBgPalette.classList.contains('hidden');
-    if (willOpen) {
-        renderTimerBgPalette();
-        timerBgPalette.classList.remove('hidden');
-    } else {
-        closeTimerBgPalette();
-    }
-};
-
-window.setTimerBgColor = (hex) => {
-    timerBgColor = hex;
-    if (timerBgColor) localStorage.setItem(TIMER_BG_STORAGE_KEY, timerBgColor);
-    else localStorage.removeItem(TIMER_BG_STORAGE_KEY);
-    applyTimerBgColor(timerBgColor);
-    saveData();
-};
-
-// Close the palette when clicking outside the setting block
-document.addEventListener('click', (e) => {
-    if (!timerBgPalette || timerBgPalette.classList.contains('hidden')) return;
-    if (!timerBgSetting) return;
-    if (timerBgSetting.contains(e.target)) return;
-    closeTimerBgPalette();
-});
 // --- Wake Lock ---
 async function requestWakeLock() {
     try {
@@ -1269,7 +1149,6 @@ function importData(event) {
                     isAo5Mode = data.settings.isAo5Mode !== undefined ? data.settings.isAo5Mode : true;
                     currentEvent = data.settings.currentEvent || '333';
                     holdDuration = data.settings.holdDuration || 300;
-                    timerBgColor = data.settings.timerBgColor || localStorage.getItem(TIMER_BG_STORAGE_KEY) || null;
                     isWakeLockEnabled = data.settings.isWakeLockEnabled || false;
                     const isDark = data.settings.isDarkMode || false;
                     isInspectionMode = data.settings.isInspectionMode || false;
@@ -1286,7 +1165,6 @@ function importData(event) {
                         updateHoldDuration(holdDurationSlider.value);
                     }
                     document.documentElement.classList.toggle('dark', isDark);
-                    applyTimerBgColor(timerBgColor);
                     if(isWakeLockEnabled) requestWakeLock();
                 }
                 saveData();
@@ -1307,16 +1185,12 @@ function saveData() {
             isAo5Mode, 
             currentEvent, 
             holdDuration,
-            timerBgColor,
             isDarkMode: document.documentElement.classList.contains('dark'),
             isWakeLockEnabled,
             isInspectionMode
         }
     };
     localStorage.setItem('cubeTimerData_v5', JSON.stringify(data));
-    // Also keep a dedicated key for resilience across data versions
-    if (timerBgColor) localStorage.setItem(TIMER_BG_STORAGE_KEY, timerBgColor);
-    else localStorage.removeItem(TIMER_BG_STORAGE_KEY);
 }
 function loadData() {
     const saved = localStorage.getItem('cubeTimerData_v5') || localStorage.getItem('cubeTimerData_v4');
@@ -1330,7 +1204,6 @@ function loadData() {
                 isAo5Mode = data.settings.isAo5Mode !== undefined ? data.settings.isAo5Mode : true;
                 currentEvent = data.settings.currentEvent || '333';
                 holdDuration = data.settings.holdDuration || 300;
-                timerBgColor = data.settings.timerBgColor || localStorage.getItem(TIMER_BG_STORAGE_KEY) || null;
                 const isDark = data.settings.isDarkMode || false;
                 isWakeLockEnabled = data.settings.isWakeLockEnabled || false;
                 isInspectionMode = data.settings.isInspectionMode || false;
@@ -1347,7 +1220,6 @@ function loadData() {
                     holdDurationValue.innerText = holdDurationSlider.value + "s";
                 }
                 document.documentElement.classList.toggle('dark', isDark);
-                applyTimerBgColor(timerBgColor);
                 if(isWakeLockEnabled) requestWakeLock();
                 const conf = configs[currentEvent];
                 if (eventSelect) eventSelect.value = currentEvent;
@@ -2370,6 +2242,165 @@ const interactiveArea = document.getElementById('timerInteractiveArea');
 interactiveArea.addEventListener('touchstart', handleStart, { passive: false });
 interactiveArea.addEventListener('touchend', handleEnd, { passive: false });
 // [UPDATED] Toggle Settings: Acts as open/close toggle
+
+/* =======================
+   Light Theme Customizer (RGB sliders)
+   - Does NOT change dark mode styles. (CSS applies only when :root:not(.dark))
+   ======================= */
+
+const THEME_STORAGE_KEY = 'ct_theme_light_v1';
+
+const DEFAULT_LIGHT_THEME = {
+  accent: { r: 37, g: 99, b: 235 },     // Tailwind blue-600
+  bg:     { r: 248, g: 250, b: 252 },   // slate-50
+  panel:  { r: 255, g: 255, b: 255 },   // white
+  scramble:{ r: 255, g: 255, b: 255 },  // default scramble box (panel-like)
+  text:   { r: 30, g: 41, b: 59 },      // slate-800
+  border: { r: 226, g: 232, b: 240 }    // slate-200
+};
+
+function clamp255(n){ n = Number(n); return Number.isFinite(n) ? Math.max(0, Math.min(255, Math.round(n))) : 0; }
+function themeToCssRgb(themePart){ return `${clamp255(themePart.r)} ${clamp255(themePart.g)} ${clamp255(themePart.b)}`; }
+
+function applyLightThemeVars(theme){
+  const root = document.documentElement;
+  try {
+    root.style.setProperty('--ct-accent-rgb', themeToCssRgb(theme.accent));
+    root.style.setProperty('--ct-bg-rgb', themeToCssRgb(theme.bg));
+    root.style.setProperty('--ct-panel-rgb', themeToCssRgb(theme.panel));
+    root.style.setProperty('--ct-scramble-rgb', themeToCssRgb(theme.scramble));
+    root.style.setProperty('--ct-text-rgb', themeToCssRgb(theme.text));
+    root.style.setProperty('--ct-border-rgb', themeToCssRgb(theme.border));
+  } catch (_) {}
+}
+
+function loadLightTheme(){
+  try {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    if (!raw) return structuredClone(DEFAULT_LIGHT_THEME);
+    const obj = JSON.parse(raw);
+    const pick = (k, fallback) => ({
+      r: clamp255(obj?.[k]?.r ?? fallback.r),
+      g: clamp255(obj?.[k]?.g ?? fallback.g),
+      b: clamp255(obj?.[k]?.b ?? fallback.b),
+    });
+    return {
+      accent: pick('accent', DEFAULT_LIGHT_THEME.accent),
+      bg: pick('bg', DEFAULT_LIGHT_THEME.bg),
+      panel: pick('panel', DEFAULT_LIGHT_THEME.panel),
+      scramble: pick('scramble', DEFAULT_LIGHT_THEME.scramble),
+      text: pick('text', DEFAULT_LIGHT_THEME.text),
+      border: pick('border', DEFAULT_LIGHT_THEME.border),
+    };
+  } catch (_) {
+    return structuredClone(DEFAULT_LIGHT_THEME);
+  }
+}
+
+function saveLightTheme(theme){
+  try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(theme)); } catch (_) {}
+}
+
+let lightTheme = loadLightTheme();
+applyLightThemeVars(lightTheme);
+
+function setSliderTriple(prefix, rgb){
+  const r = document.getElementById(prefix+'R');
+  const g = document.getElementById(prefix+'G');
+  const b = document.getElementById(prefix+'B');
+  const rv = document.getElementById(prefix+'RVal');
+  const gv = document.getElementById(prefix+'GVal');
+  const bv = document.getElementById(prefix+'BVal');
+  if (r) r.value = String(rgb.r);
+  if (g) g.value = String(rgb.g);
+  if (b) b.value = String(rgb.b);
+  if (rv) rv.textContent = String(rgb.r);
+  if (gv) gv.textContent = String(rgb.g);
+  if (bv) bv.textContent = String(rgb.b);
+}
+
+function setPreview(id, rgb){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.background = `rgb(${rgb.r} ${rgb.g} ${rgb.b})`;
+}
+
+function syncThemeUIFromState(){
+  // Sliders
+  setSliderTriple('themeAccent', lightTheme.accent);
+  setSliderTriple('themeBg', lightTheme.bg);
+  setSliderTriple('themePanel', lightTheme.panel);
+  setSliderTriple('themeScramble', lightTheme.scramble);
+  setSliderTriple('themeText', lightTheme.text);
+
+  // Previews
+  setPreview('themeAccentPreview', lightTheme.accent);
+  setPreview('themeBgPreview', lightTheme.bg);
+  setPreview('themePanelPreview', lightTheme.panel);
+  setPreview('themeScramblePreview', lightTheme.scramble);
+  setPreview('themeTextPreview', lightTheme.text);
+}
+
+// Called by oninput from sliders (global)
+window.updateThemeFromSliders = (part) => {
+  const map = {
+    accent: { key: 'accent', prefix: 'themeAccent' },
+    bg: { key: 'bg', prefix: 'themeBg' },
+    panel: { key: 'panel', prefix: 'themePanel' },
+    scramble: { key: 'scramble', prefix: 'themeScramble' },
+    text: { key: 'text', prefix: 'themeText' },
+  };
+  const meta = map[part];
+  if (!meta) return;
+  const r = clamp255(document.getElementById(meta.prefix+'R')?.value);
+  const g = clamp255(document.getElementById(meta.prefix+'G')?.value);
+  const b = clamp255(document.getElementById(meta.prefix+'B')?.value);
+
+  lightTheme[meta.key] = { r, g, b };
+
+  // Keep border sensible: follow panel slightly by default (only if user hasn't custom-set it)
+  // For now, tie border to panel a bit darker unless user changed it previously.
+  if (meta.key === 'panel') {
+    lightTheme.border = {
+      r: clamp255(r - 29),
+      g: clamp255(g - 23),
+      b: clamp255(b - 15),
+    };
+  }
+
+  // Update UI labels
+  const rv = document.getElementById(meta.prefix+'RVal'); if (rv) rv.textContent = String(r);
+  const gv = document.getElementById(meta.prefix+'GVal'); if (gv) gv.textContent = String(g);
+  const bv = document.getElementById(meta.prefix+'BVal'); if (bv) bv.textContent = String(b);
+  setPreview(meta.prefix+'Preview', { r, g, b });
+
+  applyLightThemeVars(lightTheme);
+  saveLightTheme(lightTheme);
+};
+
+window.resetThemePart = (part) => {
+  if (!DEFAULT_LIGHT_THEME[part]) return;
+  lightTheme[part] = structuredClone(DEFAULT_LIGHT_THEME[part]);
+  if (part === 'panel') {
+    lightTheme.border = structuredClone(DEFAULT_LIGHT_THEME.border);
+  }
+  applyLightThemeVars(lightTheme);
+  saveLightTheme(lightTheme);
+  syncThemeUIFromState();
+};
+
+window.resetThemeAll = () => {
+  lightTheme = structuredClone(DEFAULT_LIGHT_THEME);
+  applyLightThemeVars(lightTheme);
+  saveLightTheme(lightTheme);
+  syncThemeUIFromState();
+};
+
+// Ensure sliders/previews reflect stored theme when settings opens
+function ensureThemeUIReady(){
+  try { syncThemeUIFromState(); } catch (_) {}
+}
+
 window.openSettings = () => { 
     if (isRunning) return;
     const overlay = document.getElementById('settingsOverlay');
@@ -2378,6 +2409,7 @@ window.openSettings = () => {
     } else {
         overlay.classList.add('active'); 
         setTimeout(()=>document.getElementById('settingsModal').classList.remove('scale-95','opacity-0'), 10); 
+        try { ensureThemeUIReady(); } catch (_) {} 
     }
 };
 window.closeSettings = () => { document.getElementById('settingsModal').classList.add('scale-95','opacity-0'); setTimeout(()=>document.getElementById('settingsOverlay').classList.remove('active'), 200); saveData(); };
