@@ -523,12 +523,9 @@
 
                         <!-- Case selector (only for ZBLS/ZBLL) -->
                         <div id="caseSelectWrap" class="hidden w-full flex items-center justify-center gap-2 px-2 mt-2 flex-wrap">
-                            <span data-case-label="1" class="text-[10px] font-black uppercase tracking-widest text-slate-400">Case</span>
-                            <button id="caseOpenBtn" type="button" class="case-open-btn" onclick="openPracticeCaseModal()">케이스 선택</button>
-                            <span id="caseSummary" class="text-[10px] font-bold text-slate-500 dark:text-slate-400"></span>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Case</span>
+                            <div id="caseTabs" class="flex items-center gap-1 overflow-x-auto w-full max-w-full pr-1 justify-center"></div>
                             <select id="caseSelect" onchange="changePracticeCase(this.value)" class="hidden"></select>
-                        </div>
-<select id="caseSelect" onchange="changePracticeCase(this.value)" class="hidden"></select>
 </div>
 
                     </div>
@@ -670,35 +667,5 @@
 
     <!-- 외부 스크립트 연결 -->
     <script src="script.js"></script>
-
-    <!-- Practice Case Modal (ZBLS/ZBLL) -->
-    <div id="caseModalOverlay" class="modal-overlay" onclick="closePracticeCaseModal()">
-        <div id="caseModal" class="modal-card" onclick="event.stopPropagation()">
-            <div class="modal-head">
-                <div id="caseModalTitle" class="modal-title">케이스 선택</div>
-                <button type="button" class="modal-close" onclick="closePracticeCaseModal()">×</button>
-            </div>
-
-            <div class="modal-section">
-                <label class="radio-row">
-                    <input id="caseModeRandom" type="radio" name="caseMode" value="random" />
-                    <span>랜덤</span>
-                </label>
-                <label class="radio-row">
-                    <input id="caseModeSelected" type="radio" name="caseMode" value="selected" />
-                    <span>선택</span>
-                </label>
-                <div id="caseSelectedCount" class="modal-subtext"></div>
-            </div>
-
-            <div class="modal-list" id="caseModalList"></div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn-secondary" onclick="closePracticeCaseModal()">닫기</button>
-                <button type="button" class="btn-primary" onclick="applyPracticeCaseModal()">적용</button>
-            </div>
-        </div>
-    </div>
-
 </body>
 </html>

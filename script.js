@@ -1980,84 +1980,84 @@ Object.assign(configs, {  'p_oll': { moves: configs['333'].moves, len: configs['
   'p_zbll': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
 });
 
+let currentPracticeCase = 'any';
 
-// --- Practice case state (ZBLS/ZBLL) ---
-// Constraints: only two modes are supported: 'random' and 'selected'
-const PRACTICE_CASE_STATE = {
-  p_zbls: { mode: 'random', selected: new Set() },
-  p_zbll: { mode: 'random', selected: new Set() },
-};
-
-function _getPracticeCaseState(eventId) {
-  if (!PRACTICE_CASE_STATE[eventId]) PRACTICE_CASE_STATE[eventId] = { mode: 'random', selected: new Set() };
-  return PRACTICE_CASE_STATE[eventId];
-}
-
-// Ensure the case selector UI exists (button + summary). We do NOT render long inline tabs.
+// [FIX] Some deployed HTML variants contain an empty #caseSelectWrap without required children.
+// This helper ensures the required DOM exists so case tabs can render.
 function ensureCaseSelectorDOM() {
   const wrap = document.getElementById('caseSelectWrap');
   if (!wrap) return;
 
-  // Some variants had missing children; enforce required nodes
-  let label = wrap.querySelector('[data-case-label]');
-  if (!label) {
-    label = document.createElement('span');
-    label.setAttribute('data-case-label', '1');
-    label.className = 'text-[10px] font-black uppercase tracking-widest text-slate-400';
-    label.textContent = (currentLang === 'ko') ? '케이스' : 'Case';
-    wrap.appendChild(label);
+  // --- [FIX] Ensure the case selector is placed inside a visible container ---
+  // In this UI, #caseSelectWrap was originally located under #group-practice,
+  // which is hidden by default (legacy tab UI). When the user selects ZBLS/ZBLL
+  // via the main dropdown, the parent stays hidden, so the case selector never
+  // appears even though we remove 'hidden' from the wrap itself.
+  //
+  // Move #caseSelectWrap right under the main event selector section (always visible),
+  // unless it is already there.
+  try {
+    const evSel = document.getElementById('eventSelect');
+    if (evSel) {
+      // Prefer the immediate container around the select
+      const anchor = evSel.closest('div.w-full') || evSel.parentElement;
+      if (anchor && wrap.parentElement !== anchor.parentElement) {
+        // Insert wrap right after the anchor container
+        anchor.insertAdjacentElement('afterend', wrap);
+      }
+    }
+  } catch (_) {}
+
+  // If a full layout is already present, do nothing.
+  let tabs = document.getElementById('caseTabs');
+  let sel = document.getElementById('caseSelect');
+
+  if (!tabs) {
+    tabs = document.createElement('div');
+    tabs.id = 'caseTabs';
+    // keep styling reasonably consistent even if HTML was missing
+    tabs.className = 'flex items-center gap-1 overflow-x-auto whitespace-nowrap no-scrollbar py-2';
+    wrap.appendChild(tabs);
   }
 
-  let btn = document.getElementById('caseOpenBtn');
-  if (!btn) {
-    btn = document.createElement('button');
-    btn.id = 'caseOpenBtn';
-    btn.type = 'button';
-    btn.className = 'case-open-btn';
-    btn.onclick = () => window.openPracticeCaseModal();
-    btn.textContent = (currentLang === 'ko') ? '케이스 선택' : 'Select cases';
-    wrap.appendChild(btn);
+  if (!sel) {
+    sel = document.createElement('select');
+    sel.id = 'caseSelect';
+    sel.className = 'hidden';
+    sel.onchange = () => changePracticeCase(sel.value);
+    wrap.appendChild(sel);
   }
+}
 
-  let summary = document.getElementById('caseSummary');
-  if (!summary) {
-    summary = document.createElement('span');
-    summary.id = 'caseSummary';
-    summary.className = 'text-[10px] font-bold text-slate-500 dark:text-slate-400';
-    wrap.appendChild(summary);
-  }
-
-  // Keep button label consistent
-  btn.textContent = (currentLang === 'ko') ? '케이스 선택' : 'Select cases';
+function isPracticeEvent(eventId) {
+  return !!PRACTICE_EVENTS[eventId];
 }
 
 window.changePracticeCase = (val) => {
-  // Back-compat: map old single-value selection into the new state
-  const v = String(val || 'any');
-  const st = _getPracticeCaseState(currentEvent);
-  if (v === 'any') {
-    st.mode = 'random';
-    st.selected = new Set();
-  } else {
-    st.mode = 'selected';
-    st.selected = new Set([v]);
-  }
-  _updateCaseSummary();
+  currentPracticeCase = val || 'any';
+  // Sync UI state for tabs/select
+  updateCaseTabActive();
+  const sel = document.getElementById('caseSelect');
+  if (sel) sel.value = currentPracticeCase;
   if (isPracticeEvent(currentEvent)) generateScramble();
 };
 
 function getPracticeCaseOptions(eventId) {
   if (eventId === 'p_zbls') {
+    // keys: "1".."41"
     const keys = Object.keys(ZBLS || {}).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
     return ['any', ...keys];
   }
   if (eventId === 'p_zbll') {
+    // subsets: T, U, L, ... H (and any other keys present in the dataset)
     const keys = Object.keys(algdbZBLL || {});
     const preferred = ['T','U','L','S','AS','A','E','F','G','H','PI'];
     keys.sort((a,b) => {
       const ia = preferred.indexOf(a);
       const ib = preferred.indexOf(b);
-      if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      if (ia !== -1 || ib !== -1) {
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      }
       return String(a).localeCompare(String(b));
     });
     return ['any', ...keys];
@@ -2065,157 +2065,71 @@ function getPracticeCaseOptions(eventId) {
   return null;
 }
 
-function _updateCaseSummary() {
-  const summary = document.getElementById('caseSummary');
-  if (!summary) return;
-  const st = _getPracticeCaseState(currentEvent);
-  if (!st) { summary.textContent = ''; return; }
-
-  if (st.mode === 'random') {
-    summary.textContent = (currentLang === 'ko') ? '랜덤' : 'Random';
-    return;
-  }
-  const count = st.selected ? st.selected.size : 0;
-  if (count <= 0) {
-    summary.textContent = (currentLang === 'ko') ? '선택 없음 (랜덤으로 동작)' : 'None selected (falls back to random)';
-    return;
-  }
-  summary.textContent = (currentLang === 'ko') ? `선택 ${count}개` : `${count} selected`;
+function updateCaseTabActive() {
+  const tabs = document.getElementById('caseTabs');
+  if (!tabs) return;
+  tabs.querySelectorAll('button.case-tab').forEach(btn => {
+    const key = btn.getAttribute('data-case');
+    if ((key || 'any') === (currentPracticeCase || 'any')) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
 }
 
-function setCaseSelectorVisible(visible) {
+function renderCaseTabs(options) {
+  const tabs = document.getElementById('caseTabs');
+  if (!tabs) return;
+  tabs.innerHTML = '';
+  (options || ['any']).forEach(k => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'case-tab';
+    btn.setAttribute('data-case', k);
+    btn.textContent = (k === 'any') ? ((currentLang === 'ko') ? '랜덤' : 'Random') : String(k);
+    btn.onclick = () => window.changePracticeCase(k);
+    tabs.appendChild(btn);
+  });
+  updateCaseTabActive();
+}
+
+function setCaseSelectorVisible(visible, options = null) {
   const wrap = document.getElementById('caseSelectWrap');
+  const sel = document.getElementById('caseSelect');
+  const tabs = document.getElementById('caseTabs');
   if (!wrap) return;
   if (!visible) {
     wrap.classList.add('hidden');
+    if (tabs) tabs.innerHTML = '';
     return;
   }
-  wrap.classList.remove('hidden');
-  _updateCaseSummary();
-}
-
-function refreshPracticeUI() {
-  ensureCaseSelectorDOM();
-  const options = getPracticeCaseOptions(currentEvent);
-  setCaseSelectorVisible(!!options);
-
-  // Keep hidden <select> in sync for any legacy code paths
-  const sel = document.getElementById('caseSelect');
-  if (sel && options) {
+  // Populate tabs
+  renderCaseTabs(options || ['any']);
+  // Keep selection if possible
+  const exists = (options || []).includes(currentPracticeCase);
+  currentPracticeCase = exists ? currentPracticeCase : 'any';
+  // Sync hidden <select> for fallback/compat
+  if (sel) {
     sel.innerHTML = '';
-    options.forEach(k => {
+    (options || ['any']).forEach(k => {
       const opt = document.createElement('option');
       opt.value = k;
       opt.textContent = (k === 'any') ? ((currentLang === 'ko') ? '랜덤' : 'Random') : String(k);
       sel.appendChild(opt);
     });
-    // Select value: if selected mode with single selection, reflect it; else 'any'
-    const st = _getPracticeCaseState(currentEvent);
-    const single = (st.mode === 'selected' && st.selected && st.selected.size === 1) ? [...st.selected][0] : 'any';
-    sel.value = options.includes(single) ? single : 'any';
+    sel.value = currentPracticeCase;
   }
+  updateCaseTabActive();
+  wrap.classList.remove('hidden');
 }
 
-// --- Practice Case Modal ---
-function _updateCaseModalCounts() {
-  const st = _getPracticeCaseState(currentEvent);
-  const countEl = document.getElementById('caseSelectedCount');
-  if (!countEl) return;
-  const count = st.selected ? st.selected.size : 0;
-  countEl.textContent = (currentLang === 'ko') ? `선택됨: ${count}개` : `Selected: ${count}`;
+function refreshPracticeUI() {
+  ensureCaseSelectorDOM();
+  // Show case selector whenever the current event has case options (ZBLS/ZBLL),
+  // even if PRACTICE_EVENTS or other metadata is out of sync.
+  const eventId = String(currentEvent || '').trim();
+  const options = getPracticeCaseOptions(eventId);
+  setCaseSelectorVisible(!!options, options);
 }
 
-window.openPracticeCaseModal = () => {
-  const options = getPracticeCaseOptions(currentEvent);
-  if (!options) return;
-
-  const overlay = document.getElementById('caseModalOverlay');
-  const titleEl = document.getElementById('caseModalTitle');
-  const listEl = document.getElementById('caseModalList');
-  const radioRandom = document.getElementById('caseModeRandom');
-  const radioSelected = document.getElementById('caseModeSelected');
-  if (!overlay || !titleEl || !listEl || !radioRandom || !radioSelected) return;
-
-  const st = _getPracticeCaseState(currentEvent);
-
-  const eventLabel = (currentEvent === 'p_zbls') ? 'ZBLS' : (currentEvent === 'p_zbll' ? 'ZBLL' : 'Case');
-  titleEl.textContent = (currentLang === 'ko') ? `${eventLabel} 케이스 선택` : `Select ${eventLabel} cases`;
-
-  radioRandom.checked = (st.mode === 'random');
-  radioSelected.checked = (st.mode === 'selected');
-
-  const keys = options.filter(k => k !== 'any');
-  listEl.innerHTML = '';
-
-  keys.forEach(k => {
-    const row = document.createElement('label');
-    row.className = 'case-row';
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'case-checkbox';
-    cb.value = String(k);
-    cb.checked = st.selected ? st.selected.has(String(k)) : false;
-    cb.disabled = (st.mode !== 'selected');
-
-    cb.onchange = () => {
-      if (!st.selected) st.selected = new Set();
-      if (cb.checked) st.selected.add(String(k));
-      else st.selected.delete(String(k));
-      _updateCaseModalCounts();
-    };
-
-    const txt = document.createElement('span');
-    txt.textContent = String(k);
-
-    row.appendChild(cb);
-    row.appendChild(txt);
-
-    listEl.appendChild(row);
-  });
-
-  const updateDisabled = () => {
-    const disabled = !radioSelected.checked;
-    listEl.querySelectorAll('input.case-checkbox').forEach(el => {
-      el.disabled = disabled;
-      const parent = el.closest('.case-row');
-      if (parent) parent.classList.toggle('disabled', disabled);
-    });
-  };
-
-  radioRandom.onchange = () => { st.mode = 'random'; updateDisabled(); _updateCaseModalCounts(); };
-  radioSelected.onchange = () => { st.mode = 'selected'; updateDisabled(); _updateCaseModalCounts(); };
-
-  updateDisabled();
-  _updateCaseModalCounts();
-
-  overlay.classList.add('show');
-};
-
-window.closePracticeCaseModal = () => {
-  const overlay = document.getElementById('caseModalOverlay');
-  if (overlay) overlay.classList.remove('show');
-};
-
-window.applyPracticeCaseModal = () => {
-  const st = _getPracticeCaseState(currentEvent);
-  // If 'selected' but nothing chosen, fall back to random to avoid dead state
-  if (st.mode === 'selected' && (!st.selected || st.selected.size === 0)) {
-    st.mode = 'random';
-    st.selected = new Set();
-  }
-  _updateCaseSummary();
-  window.closePracticeCaseModal();
-  if (isPracticeEvent(currentEvent)) generateScramble();
-};
-
-// Make sure practice UI is refreshed when the page initializes and when event changes
-const _origChangeEvent = window.changeEvent;
-window.changeEvent = function(e) {
-  const v = String(e || '').trim();
-  if (_origChangeEvent) _origChangeEvent(v);
-  refreshPracticeUI();
-};
 // --- Route 1 scramble builders (adapted from Alg-Trainer RubiksCube.js) ---
 function _cleanAlg(s) {
   // Alg-Trainer datasets sometimes include multiple variants separated by '/'.
@@ -3200,6 +3114,8 @@ function switchCategory(cat, autoSelectFirst = true) {
     }
 }
 function changeEvent(e) {
+  // Normalize incoming event id (guards against stray whitespace from HTML/select values)
+  e = String(e || '').trim();
   ensureCaseSelectorDOM();
     if (isRunning) return;
     currentEvent = e;
