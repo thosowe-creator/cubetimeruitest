@@ -1982,6 +1982,33 @@ Object.assign(configs, {  'p_oll': { moves: configs['333'].moves, len: configs['
 
 let currentPracticeCase = 'any';
 
+// [FIX] Some deployed HTML variants contain an empty #caseSelectWrap without required children.
+// This helper ensures the required DOM exists so case tabs can render.
+function ensureCaseSelectorDOM() {
+  const wrap = document.getElementById('caseSelectWrap');
+  if (!wrap) return;
+
+  // If a full layout is already present, do nothing.
+  let tabs = document.getElementById('caseTabs');
+  let sel = document.getElementById('caseSelect');
+
+  if (!tabs) {
+    tabs = document.createElement('div');
+    tabs.id = 'caseTabs';
+    // keep styling reasonably consistent even if HTML was missing
+    tabs.className = 'flex items-center gap-1 overflow-x-auto whitespace-nowrap no-scrollbar py-2';
+    wrap.appendChild(tabs);
+  }
+
+  if (!sel) {
+    sel = document.createElement('select');
+    sel.id = 'caseSelect';
+    sel.className = 'hidden';
+    sel.onchange = () => changePracticeCase(sel.value);
+    wrap.appendChild(sel);
+  }
+}
+
 function isPracticeEvent(eventId) {
   return !!PRACTICE_EVENTS[eventId];
 }
@@ -2044,34 +2071,7 @@ function renderCaseTabs(options) {
   updateCaseTabActive();
 }
 
-function ensureCaseSelectorDOM() {
-  const wrap = document.getElementById('caseSelectWrap');
-  if (!wrap) return;
-  // If the wrap exists but expected children are missing (some deployments have an empty div),
-  // recreate the minimal DOM so the case selector can render.
-  let tabs = document.getElementById('caseTabs');
-  let sel = document.getElementById('caseSelect');
-  if (!tabs) {
-    // Optional label
-    const label = document.createElement('span');
-    label.textContent = 'Case';
-    label.className = 'text-[10px] font-black uppercase tracking-widest text-slate-400';
-    wrap.appendChild(label);
-    tabs = document.createElement('div');
-    tabs.id = 'caseTabs';
-    tabs.className = 'flex items-center gap-1 overflow-x-auto max-w-[46vw] scrollbar-hide';
-    wrap.appendChild(tabs);
-  }
-  if (!sel) {
-    sel = document.createElement('select');
-    sel.id = 'caseSelect';
-    sel.className = 'hidden';
-    sel.onchange = function () { window.changePracticeCase?.(this.value); };
-    wrap.appendChild(sel);
-  }
-}
-
-function setCaseSelectorVisible\(visible, options = null\) {
+function setCaseSelectorVisible(visible, options = null) {
   const wrap = document.getElementById('caseSelectWrap');
   const sel = document.getElementById('caseSelect');
   const tabs = document.getElementById('caseTabs');
@@ -2102,6 +2102,7 @@ function setCaseSelectorVisible\(visible, options = null\) {
 }
 
 function refreshPracticeUI() {
+  ensureCaseSelectorDOM();
   const isP = isPracticeEvent(currentEvent);
   const options = isP ? getPracticeCaseOptions(currentEvent) : null;
   setCaseSelectorVisible(!!options, options);
@@ -3091,6 +3092,7 @@ function switchCategory(cat, autoSelectFirst = true) {
     }
 }
 function changeEvent(e) {
+  ensureCaseSelectorDOM();
     if (isRunning) return;
     currentEvent = e;
     if (eventSelect && eventSelect.value !== e) eventSelect.value = e;
@@ -4448,3 +4450,7 @@ applyLanguageToUI();
 changeEvent(currentEvent);
 // Check for updates on load
 checkUpdateLog();
+
+// [FIX] Ensure inline HTML handlers can always find these (in case of bundling/scoping changes)
+window.changeEvent = window.changeEvent || changeEvent;
+window.changePracticeCase = window.changePracticeCase || changePracticeCase;
