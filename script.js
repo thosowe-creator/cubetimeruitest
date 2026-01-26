@@ -2369,71 +2369,293 @@ function applyLightTheme() {
   setRGB('--ct-scramble-rgb', lightTheme.scramble);
 }
 
-function setThemeSliderUI(part) {
-  const rgb = lightTheme[part];
-  if (!rgb) return;
+/* =========================
+   HSV Color Picker (Theme)
+   - Replaces RGB sliders
+   - Light mode only (dark mode is not modified)
+   ========================= */
 
-  const ids = {
-    r: `theme${part[0].toUpperCase() + part.slice(1)}R`,
-    g: `theme${part[0].toUpperCase() + part.slice(1)}G`,
-    b: `theme${part[0].toUpperCase() + part.slice(1)}B`,
-    rv: `theme${part[0].toUpperCase() + part.slice(1)}RVal`,
-    gv: `theme${part[0].toUpperCase() + part.slice(1)}GVal`,
-    bv: `theme${part[0].toUpperCase() + part.slice(1)}BVal`,
-    preview: `theme${part[0].toUpperCase() + part.slice(1)}Preview`,
-    hex: `theme${part[0].toUpperCase() + part.slice(1)}Hex`,
+function rgbToHsv([r, g, b]) {
+  const rr = r / 255, gg = g / 255, bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d = max - min;
+
+  let h = 0;
+  if (d !== 0) {
+    if (max === rr) h = ((gg - bb) / d) % 6;
+    else if (max === gg) h = (bb - rr) / d + 2;
+    else h = (rr - gg) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+
+  const s = max === 0 ? 0 : d / max;
+  const v = max;
+  return { h, s, v };
+}
+
+function hsvToRgb({ h, s, v }) {
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let rr = 0, gg = 0, bb = 0;
+  if (h >= 0 && h < 60) { rr = c; gg = x; bb = 0; }
+  else if (h < 120) { rr = x; gg = c; bb = 0; }
+  else if (h < 180) { rr = 0; gg = c; bb = x; }
+  else if (h < 240) { rr = 0; gg = x; bb = c; }
+  else if (h < 300) { rr = x; gg = 0; bb = c; }
+  else { rr = c; gg = 0; bb = x; }
+  return [
+    clamp255((rr + m) * 255),
+    clamp255((gg + m) * 255),
+    clamp255((bb + m) * 255),
+  ];
+}
+
+function partLabel(part) {
+  return ({
+    accent: 'Accent',
+    bg: 'Background',
+    card: 'Panels',
+    text: 'Text',
+    scramble: 'Scramble Box',
+  })[part] || 'Color';
+}
+
+function syncThemeRowsUI() {
+  const map = {
+    accent: 'Accent',
+    bg: 'Bg',
+    card: 'Card',
+    text: 'Text',
+    scramble: 'Scramble',
   };
-
-  const rEl = document.getElementById(ids.r);
-  const gEl = document.getElementById(ids.g);
-  const bEl = document.getElementById(ids.b);
-  const rvEl = document.getElementById(ids.rv);
-  const gvEl = document.getElementById(ids.gv);
-  const bvEl = document.getElementById(ids.bv);
-  const pEl = document.getElementById(ids.preview);
-  const hEl = document.getElementById(ids.hex);
-
-  if (rEl) rEl.value = String(rgb[0]);
-  if (gEl) gEl.value = String(rgb[1]);
-  if (bEl) bEl.value = String(rgb[2]);
-  if (rvEl) rvEl.textContent = String(rgb[0]);
-  if (gvEl) gvEl.textContent = String(rgb[1]);
-  if (bvEl) bvEl.textContent = String(rgb[2]);
-  const hex = rgbToHex(rgb);
-  if (hEl) hEl.textContent = hex;
-  if (pEl) pEl.style.backgroundColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  for (const [part, suf] of Object.entries(map)) {
+    const rgb = lightTheme[part];
+    if (!rgb) continue;
+    const dot = document.getElementById(`themeRow${suf}Dot`);
+    const hexEl = document.getElementById(`themeRow${suf}Hex`);
+    if (dot) dot.style.backgroundColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    if (hexEl) hexEl.textContent = rgbToHex(rgb);
+  }
 }
-
-function syncAllThemeUI() {
-  for (const k of Object.keys(LIGHT_THEME_DEFAULTS)) setThemeSliderUI(k);
-}
-
-window.updateThemeFromSliders = (part) => {
-  if (!LIGHT_THEME_DEFAULTS[part]) return;
-  const cap = part[0].toUpperCase() + part.slice(1);
-  const r = document.getElementById(`theme${cap}R`);
-  const g = document.getElementById(`theme${cap}G`);
-  const b = document.getElementById(`theme${cap}B`);
-  if (!r || !g || !b) return;
-  lightTheme[part] = [clamp255(r.value), clamp255(g.value), clamp255(b.value)];
-  applyLightTheme();
-  saveLightTheme();
-  setThemeSliderUI(part);
-};
-
-window.resetThemePart = (part) => {
-  if (!LIGHT_THEME_DEFAULTS[part]) return;
-  lightTheme[part] = structuredClone(LIGHT_THEME_DEFAULTS[part]);
-  applyLightTheme();
-  saveLightTheme();
-  setThemeSliderUI(part);
-};
 
 window.resetAllThemeLight = () => {
   lightTheme = structuredClone(LIGHT_THEME_DEFAULTS);
   applyLightTheme();
   saveLightTheme();
-  syncAllThemeUI();
+  syncThemeRowsUI();
+};
+
+// Picker state
+const themePickerState = {
+  part: null,
+  prevRgb: null,
+  hsv: { h: 200, s: 0.4, v: 1 },
+  dragging: null, // 'sv' | 'hue'
+};
+
+function getCanvasPos(canvas, clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  const x = Math.min(r.width, Math.max(0, clientX - r.left));
+  const y = Math.min(r.height, Math.max(0, clientY - r.top));
+  // map to canvas internal pixels
+  return {
+    x: x * (canvas.width / r.width),
+    y: y * (canvas.height / r.height),
+    w: canvas.width,
+    h: canvas.height,
+  };
+}
+
+function drawHue(canvas, hue) {
+  const ctx = canvas.getContext('2d');
+  const { width: w, height: h } = canvas;
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  for (let i = 0; i <= 360; i += 60) {
+    grad.addColorStop(i / 360, `hsl(${i}, 100%, 50%)`);
+  }
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+  // indicator line
+  const y = (hue / 360) * h;
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.rect(1, y - 2, w - 2, 4);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(1, y - 2, w - 2, 4);
+}
+
+function drawSV(canvas, hsv) {
+  const ctx = canvas.getContext('2d');
+  const { width: w, height: h } = canvas;
+  ctx.clearRect(0, 0, w, h);
+
+  // base hue
+  ctx.fillStyle = `hsl(${hsv.h}, 100%, 50%)`;
+  ctx.fillRect(0, 0, w, h);
+
+  // white overlay (saturation)
+  const whiteGrad = ctx.createLinearGradient(0, 0, w, 0);
+  whiteGrad.addColorStop(0, 'rgba(255,255,255,1)');
+  whiteGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = whiteGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // black overlay (value)
+  const blackGrad = ctx.createLinearGradient(0, 0, 0, h);
+  blackGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  blackGrad.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.fillStyle = blackGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // picker circle
+  const x = hsv.s * w;
+  const y = (1 - hsv.v) * h;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath();
+  ctx.arc(x, y, 7, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, 8.5, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function setPickerUIFromHsv() {
+  const rgb = hsvToRgb(themePickerState.hsv);
+  // live apply
+  if (themePickerState.part && lightTheme[themePickerState.part]) {
+    lightTheme[themePickerState.part] = rgb;
+    applyLightTheme();
+    saveLightTheme();
+  }
+
+  const dot = document.getElementById('themePickerDot');
+  const hexEl = document.getElementById('themePickerHex');
+  const rgbEl = document.getElementById('themePickerRgb');
+  if (dot) dot.style.backgroundColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  if (hexEl) hexEl.textContent = rgbToHex(rgb);
+  if (rgbEl) rgbEl.textContent = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  syncThemeRowsUI();
+
+  const sv = document.getElementById('themeSV');
+  const hue = document.getElementById('themeHue');
+  if (sv) drawSV(sv, themePickerState.hsv);
+  if (hue) drawHue(hue, themePickerState.hsv.h);
+}
+
+function setPickerForPart(part) {
+  themePickerState.part = part;
+  themePickerState.prevRgb = structuredClone(lightTheme[part]);
+  themePickerState.hsv = rgbToHsv(lightTheme[part]);
+  const title = document.getElementById('themePickerTitle');
+  if (title) title.textContent = partLabel(part);
+  setPickerUIFromHsv();
+}
+
+function ensurePickerEvents() {
+  const sv = document.getElementById('themeSV');
+  const hue = document.getElementById('themeHue');
+  if (!sv || !hue) return;
+
+  const onDownSV = (e) => {
+    themePickerState.dragging = 'sv';
+    onMoveSV(e);
+  };
+  const onMoveSV = (e) => {
+    if (themePickerState.dragging !== 'sv') return;
+    const p = getCanvasPos(sv, e.clientX, e.clientY);
+    themePickerState.hsv.s = Math.min(1, Math.max(0, p.x / p.w));
+    themePickerState.hsv.v = Math.min(1, Math.max(0, 1 - (p.y / p.h)));
+    setPickerUIFromHsv();
+  };
+  const onDownHue = (e) => {
+    themePickerState.dragging = 'hue';
+    onMoveHue(e);
+  };
+  const onMoveHue = (e) => {
+    if (themePickerState.dragging !== 'hue') return;
+    const p = getCanvasPos(hue, e.clientX, e.clientY);
+    themePickerState.hsv.h = Math.min(360, Math.max(0, (p.y / p.h) * 360));
+    setPickerUIFromHsv();
+  };
+  const onUp = () => {
+    themePickerState.dragging = null;
+  };
+
+  // prevent duplicate wiring
+  if (!sv.__ctBound) {
+    sv.__ctBound = true;
+    sv.addEventListener('pointerdown', (e) => { sv.setPointerCapture(e.pointerId); onDownSV(e); });
+    sv.addEventListener('pointermove', onMoveSV);
+    sv.addEventListener('pointerup', onUp);
+    sv.addEventListener('pointercancel', onUp);
+  }
+  if (!hue.__ctBound) {
+    hue.__ctBound = true;
+    hue.addEventListener('pointerdown', (e) => { hue.setPointerCapture(e.pointerId); onDownHue(e); });
+    hue.addEventListener('pointermove', onMoveHue);
+    hue.addEventListener('pointerup', onUp);
+    hue.addEventListener('pointercancel', onUp);
+  }
+}
+
+window.openThemePicker = (part) => {
+  if (!LIGHT_THEME_DEFAULTS[part]) return;
+  const themeList = document.getElementById('themeSettingsView');
+  const picker = document.getElementById('themePickerView');
+  if (themeList) themeList.classList.add('hidden');
+  if (picker) picker.classList.remove('hidden');
+  // header back should go back to theme list
+  const title = document.getElementById('settingsTitle');
+  if (title) title.textContent = 'Theme';
+  setPickerForPart(part);
+  ensurePickerEvents();
+  const sc = document.getElementById('settingsScroll');
+  if (sc) sc.scrollTop = 0;
+};
+
+window.themePickerCancel = () => {
+  const part = themePickerState.part;
+  if (part && themePickerState.prevRgb) {
+    lightTheme[part] = structuredClone(themePickerState.prevRgb);
+    applyLightTheme();
+    saveLightTheme();
+  }
+  window.closeThemePicker();
+};
+
+window.themePickerApply = () => {
+  // already live-applied; just close
+  window.closeThemePicker();
+};
+
+window.themePickerDefault = () => {
+  const part = themePickerState.part;
+  if (!part) return;
+  lightTheme[part] = structuredClone(LIGHT_THEME_DEFAULTS[part]);
+  themePickerState.hsv = rgbToHsv(lightTheme[part]);
+  applyLightTheme();
+  saveLightTheme();
+  setPickerUIFromHsv();
+};
+
+window.closeThemePicker = () => {
+  const themeList = document.getElementById('themeSettingsView');
+  const picker = document.getElementById('themePickerView');
+  if (picker) picker.classList.add('hidden');
+  if (themeList) themeList.classList.remove('hidden');
+  syncThemeRowsUI();
+  const sc = document.getElementById('settingsScroll');
+  if (sc) sc.scrollTop = 0;
 };
 
 window.openThemeSettings = () => {
@@ -2448,13 +2670,22 @@ window.openThemeSettings = () => {
   if (back) back.classList.remove('hidden');
   if (resetAll) resetAll.classList.remove('hidden');
   if (title) title.textContent = 'Theme';
-  syncAllThemeUI();
+  // ensure picker is closed when entering theme list
+  const picker = document.getElementById('themePickerView');
+  if (picker) picker.classList.add('hidden');
+  syncThemeRowsUI();
   // keep scroll at top when entering theme view
   const sc = document.getElementById('settingsScroll');
   if (sc) sc.scrollTop = 0;
 };
 
 window.closeThemeSettings = () => {
+  // if picker is open, go back to theme list first
+  const picker = document.getElementById('themePickerView');
+  if (picker && !picker.classList.contains('hidden')) {
+    window.closeThemePicker();
+    return;
+  }
   const main = document.getElementById('settingsMainView');
   const theme = document.getElementById('themeSettingsView');
   const back = document.getElementById('themeBackBtn');

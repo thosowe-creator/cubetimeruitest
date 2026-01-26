@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko"
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -253,93 +253,88 @@
 	                </div>
 
 	                <!-- Theme Settings View (Light mode only) -->
-	                <div id="themeSettingsView" class="hidden space-y-4">
-<!-- Accent -->
-	                    <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-	                        <div class="flex items-center justify-between mb-3">
-	                            <div class="flex items-center gap-2">
-	                                <div id="themeAccentPreview" class="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-600"></div>
-	                                <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Accent</p>
+	                <div id="themeSettingsView" class="hidden space-y-2">
+	                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-slate-600 mb-2">Theme Colors</p>
+	                    <div class="space-y-2">
+	                        <button type="button" onclick="openThemePicker('accent')" class="theme-row">
+	                            <div class="theme-row-left">
+	                                <div id="themeRowAccentDot" class="theme-dot"></div>
+	                                <div class="theme-row-text">
+	                                    <p class="theme-row-title">Accent</p>
+	                                    <p id="themeRowAccentHex" class="theme-row-sub">#3B82F6</p>
+	                                </div>
 	                            </div>
-	                            <button onclick="resetThemePart('accent')" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Default</button>
+	                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="theme-chevron"><path d="M9 18l6-6-6-6"/></svg>
+	                        </button>
+	                        <button type="button" onclick="openThemePicker('bg')" class="theme-row">
+	                            <div class="theme-row-left">
+	                                <div id="themeRowBgDot" class="theme-dot"></div>
+	                                <div class="theme-row-text">
+	                                    <p class="theme-row-title">Background</p>
+	                                    <p id="themeRowBgHex" class="theme-row-sub">#F8FAFC</p>
+	                                </div>
+	                            </div>
+	                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="theme-chevron"><path d="M9 18l6-6-6-6"/></svg>
+	                        </button>
+	                        <button type="button" onclick="openThemePicker('card')" class="theme-row">
+	                            <div class="theme-row-left">
+	                                <div id="themeRowCardDot" class="theme-dot"></div>
+	                                <div class="theme-row-text">
+	                                    <p class="theme-row-title">Panels</p>
+	                                    <p id="themeRowCardHex" class="theme-row-sub">#FFFFFF</p>
+	                                </div>
+	                            </div>
+	                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="theme-chevron"><path d="M9 18l6-6-6-6"/></svg>
+	                        </button>
+	                        <button type="button" onclick="openThemePicker('text')" class="theme-row">
+	                            <div class="theme-row-left">
+	                                <div id="themeRowTextDot" class="theme-dot"></div>
+	                                <div class="theme-row-text">
+	                                    <p class="theme-row-title">Text</p>
+	                                    <p id="themeRowTextHex" class="theme-row-sub">#0F172A</p>
+	                                </div>
+	                            </div>
+	                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="theme-chevron"><path d="M9 18l6-6-6-6"/></svg>
+	                        </button>
+	                        <button type="button" onclick="openThemePicker('scramble')" class="theme-row">
+	                            <div class="theme-row-left">
+	                                <div id="themeRowScrambleDot" class="theme-dot"></div>
+	                                <div class="theme-row-text">
+	                                    <p class="theme-row-title">Scramble Box</p>
+	                                    <p id="themeRowScrambleHex" class="theme-row-sub">#FFFFFF</p>
+	                                </div>
+	                            </div>
+	                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="theme-chevron"><path d="M9 18l6-6-6-6"/></svg>
+	                        </button>
+	                    </div>
+	                </div>
+
+	                <!-- Theme Color Picker View -->
+	                <div id="themePickerView" class="hidden space-y-3">
+	                    <div class="flex items-center justify-between">
+	                        <div class="flex items-center gap-2">
+	                            <div id="themePickerDot" class="theme-dot"></div>
+	                            <div>
+	                                <p id="themePickerTitle" class="text-xs font-bold text-slate-700 dark:text-slate-200">Color</p>
+	                                <p id="themePickerHex" class="text-[10px] font-black text-slate-400">#FFFFFF</p>
+	                            </div>
 	                        </div>
-	                        <div class="space-y-2">
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">R</span><input type="range" id="themeAccentR" min="0" max="255" step="1" value="59" oninput="updateThemeFromSliders('accent')"><span id="themeAccentRVal" class="w-10 text-right text-[10px] font-bold text-slate-400">59</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">G</span><input type="range" id="themeAccentG" min="0" max="255" step="1" value="130" oninput="updateThemeFromSliders('accent')"><span id="themeAccentGVal" class="w-10 text-right text-[10px] font-bold text-slate-400">130</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">B</span><input type="range" id="themeAccentB" min="0" max="255" step="1" value="246" oninput="updateThemeFromSliders('accent')"><span id="themeAccentBVal" class="w-10 text-right text-[10px] font-bold text-slate-400">246</span></div>
+	                        <button type="button" onclick="themePickerDefault()" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Default</button>
+	                    </div>
+	                    <div class="theme-picker-wrap">
+	                        <div class="theme-sv-wrap">
+	                            <canvas id="themeSV" width="220" height="220" class="theme-sv-canvas"></canvas>
 	                        </div>
-	                        <div class="mt-3 flex items-center justify-between">
-	                            <span class="text-[10px] font-bold text-slate-400">Preview</span>
-	                            <span id="themeAccentHex" class="text-[10px] font-black text-slate-500">#3B82F6</span>
+	                        <div class="theme-hue-wrap">
+	                            <canvas id="themeHue" width="26" height="220" class="theme-hue-canvas"></canvas>
 	                        </div>
 	                    </div>
-
-	                    <!-- Background -->
-	                    <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-	                        <div class="flex items-center justify-between mb-3">
-	                            <div class="flex items-center gap-2">
-	                                <div id="themeBgPreview" class="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-600"></div>
-	                                <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Background</p>
-	                            </div>
-	                            <button onclick="resetThemePart('bg')" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Default</button>
+	                    <div class="flex items-center justify-between">
+	                        <p id="themePickerRgb" class="text-[10px] font-bold text-slate-400">rgb(255,255,255)</p>
+	                        <div class="flex gap-2">
+	                            <button type="button" onclick="themePickerCancel()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-black text-slate-600 dark:text-slate-300 active:scale-95 transition-all">Cancel</button>
+	                            <button type="button" onclick="themePickerApply()" class="px-3 py-2 rounded-xl bg-slate-800 dark:bg-slate-700 text-[11px] font-black text-white active:scale-95 transition-all">Apply</button>
 	                        </div>
-	                        <div class="space-y-2">
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">R</span><input type="range" id="themeBgR" min="0" max="255" step="1" value="248" oninput="updateThemeFromSliders('bg')"><span id="themeBgRVal" class="w-10 text-right text-[10px] font-bold text-slate-400">248</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">G</span><input type="range" id="themeBgG" min="0" max="255" step="1" value="250" oninput="updateThemeFromSliders('bg')"><span id="themeBgGVal" class="w-10 text-right text-[10px] font-bold text-slate-400">250</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">B</span><input type="range" id="themeBgB" min="0" max="255" step="1" value="252" oninput="updateThemeFromSliders('bg')"><span id="themeBgBVal" class="w-10 text-right text-[10px] font-bold text-slate-400">252</span></div>
-	                        </div>
-	                        <div class="mt-3 flex items-center justify-between"><span class="text-[10px] font-bold text-slate-400">Preview</span><span id="themeBgHex" class="text-[10px] font-black text-slate-500">#F8FAFC</span></div>
-	                    </div>
-
-	                    <!-- Panel / Card -->
-	                    <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-	                        <div class="flex items-center justify-between mb-3">
-	                            <div class="flex items-center gap-2">
-	                                <div id="themePanelPreview" class="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-600"></div>
-	                                <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Panels</p>
-	                            </div>
-	                            <button onclick="resetThemePart('panel')" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Default</button>
-	                        </div>
-	                        <div class="space-y-2">
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">R</span><input type="range" id="themePanelR" min="0" max="255" step="1" value="255" oninput="updateThemeFromSliders('panel')"><span id="themePanelRVal" class="w-10 text-right text-[10px] font-bold text-slate-400">255</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">G</span><input type="range" id="themePanelG" min="0" max="255" step="1" value="255" oninput="updateThemeFromSliders('panel')"><span id="themePanelGVal" class="w-10 text-right text-[10px] font-bold text-slate-400">255</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">B</span><input type="range" id="themePanelB" min="0" max="255" step="1" value="255" oninput="updateThemeFromSliders('panel')"><span id="themePanelBVal" class="w-10 text-right text-[10px] font-bold text-slate-400">255</span></div>
-	                        </div>
-	                        <div class="mt-3 flex items-center justify-between"><span class="text-[10px] font-bold text-slate-400">Preview</span><span id="themePanelHex" class="text-[10px] font-black text-slate-500">#FFFFFF</span></div>
-	                    </div>
-
-	                    <!-- Text -->
-	                    <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-	                        <div class="flex items-center justify-between mb-3">
-	                            <div class="flex items-center gap-2">
-	                                <div id="themeTextPreview" class="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-600"></div>
-	                                <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Text</p>
-	                            </div>
-	                            <button onclick="resetThemePart('text')" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Default</button>
-	                        </div>
-	                        <div class="space-y-2">
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">R</span><input type="range" id="themeTextR" min="0" max="255" step="1" value="15" oninput="updateThemeFromSliders('text')"><span id="themeTextRVal" class="w-10 text-right text-[10px] font-bold text-slate-400">15</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">G</span><input type="range" id="themeTextG" min="0" max="255" step="1" value="23" oninput="updateThemeFromSliders('text')"><span id="themeTextGVal" class="w-10 text-right text-[10px] font-bold text-slate-400">23</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">B</span><input type="range" id="themeTextB" min="0" max="255" step="1" value="42" oninput="updateThemeFromSliders('text')"><span id="themeTextBVal" class="w-10 text-right text-[10px] font-bold text-slate-400">42</span></div>
-	                        </div>
-	                        <div class="mt-3 flex items-center justify-between"><span class="text-[10px] font-bold text-slate-400">Preview</span><span id="themeTextHex" class="text-[10px] font-black text-slate-500">#0F172A</span></div>
-	                    </div>
-
-	                    <!-- Scramble Box -->
-	                    <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-	                        <div class="flex items-center justify-between mb-3">
-	                            <div class="flex items-center gap-2">
-	                                <div id="themeScramblePreview" class="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-600"></div>
-	                                <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Scramble Box</p>
-	                            </div>
-	                            <button onclick="resetThemePart('scramble')" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Default</button>
-	                        </div>
-	                        <div class="space-y-2">
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">R</span><input type="range" id="themeScrambleR" min="0" max="255" step="1" value="255" oninput="updateThemeFromSliders('scramble')"><span id="themeScrambleRVal" class="w-10 text-right text-[10px] font-bold text-slate-400">255</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">G</span><input type="range" id="themeScrambleG" min="0" max="255" step="1" value="255" oninput="updateThemeFromSliders('scramble')"><span id="themeScrambleGVal" class="w-10 text-right text-[10px] font-bold text-slate-400">255</span></div>
-	                            <div class="flex items-center gap-3"><span class="w-4 text-[10px] font-bold text-slate-400">B</span><input type="range" id="themeScrambleB" min="0" max="255" step="1" value="255" oninput="updateThemeFromSliders('scramble')"><span id="themeScrambleBVal" class="w-10 text-right text-[10px] font-bold text-slate-400">255</span></div>
-	                        </div>
-	                        <div class="mt-3 flex items-center justify-between"><span class="text-[10px] font-bold text-slate-400">Preview</span><span id="themeScrambleHex" class="text-[10px] font-black text-slate-500">#FFFFFF</span></div>
 	                    </div>
 	                </div>
 	            </div>

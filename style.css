@@ -125,6 +125,76 @@ html:not(.dark) .bg-white{
   background-color: rgb(var(--ct-card-rgb)) !important;
 }
 
+/* =========================
+   Theme UI (HSV Picker)
+   ========================= */
+.theme-row{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 0.9rem;
+  border-radius: 1rem;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(226,232,240,0.8);
+  transition: background 0.15s, transform 0.15s;
+}
+.dark .theme-row{
+  background: rgba(30,41,59,0.55);
+  border-color: rgba(51,65,85,0.9);
+}
+.theme-row:hover{ background: rgba(241,245,249,0.95); }
+.dark .theme-row:hover{ background: rgba(51,65,85,0.55); }
+.theme-row:active{ transform: scale(0.99); }
+
+.theme-row-left{ display:flex; align-items:center; gap:0.75rem; }
+.theme-row-text{ display:flex; flex-direction:column; align-items:flex-start; line-height:1.05; }
+.theme-row-title{ font-size: 0.78rem; font-weight: 800; color: #475569; }
+.dark .theme-row-title{ color:#cbd5e1; }
+.theme-row-sub{ font-size: 0.68rem; font-weight: 900; color: #94a3b8; letter-spacing: 0.02em; }
+.theme-chevron{ color:#94a3b8; }
+
+.theme-dot{
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.45);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+}
+.dark .theme-dot{ border-color: rgba(148,163,184,0.25); }
+
+.theme-picker-wrap{
+  display:flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.theme-sv-wrap, .theme-hue-wrap{
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(226,232,240,0.85);
+}
+.dark .theme-sv-wrap, .dark .theme-hue-wrap{ border-color: rgba(51,65,85,0.9); }
+
+.theme-sv-canvas{
+  display:block;
+  width: 220px;
+  height: 220px;
+  touch-action: none;
+}
+.theme-hue-canvas{
+  display:block;
+  width: 26px;
+  height: 220px;
+  touch-action: none;
+}
+
+@media (max-width: 420px){
+  .theme-sv-canvas{ width: 200px; height: 200px; }
+  .theme-hue-canvas{ width: 24px; height: 200px; }
+}
+
 /* Switch Toggle */
 .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
 .switch input { opacity: 0; width: 0; height: 0; }
