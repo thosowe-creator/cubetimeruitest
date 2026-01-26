@@ -3069,10 +3069,14 @@ function changeEvent(e) {
     if (eventSelect && eventSelect.value !== e) eventSelect.value = e;
     const conf = configs[e];
     initSessionIfNeeded(e);
-    // Practice UI (case selector)
-    refreshPracticeUI();
-    
-    // Reset lazy loading on event change
+    // Practice UI (case selector) — hard gate by event id to avoid any state desync
+    if (e === 'p_zbls' || e === 'p_zbll') {
+        const options = getPracticeCaseOptions(e) || ['any'];
+        setCaseSelectorVisible(true, options);
+    } else {
+        setCaseSelectorVisible(false);
+    }
+// Reset lazy loading on event change
     displayedSolvesCount = SOLVES_BATCH_SIZE;
     if(historyList) historyList.scrollTop = 0;
     // Legacy tab UI (hidden). Guard to avoid null refs.
@@ -4421,3 +4425,6 @@ applyLanguageToUI();
 changeEvent(currentEvent);
 // Check for updates on load
 checkUpdateLog();
+
+// Ensure inline handlers can always call changeEvent
+window.changeEvent = changeEvent;
