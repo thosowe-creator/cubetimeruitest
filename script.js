@@ -28,9 +28,15 @@ let hasSpoken8 = false;
 let hasSpoken12 = false;
 let lastStopTimestamp = 0;
 
-// Accent color (simple theme feel)
-const DEFAULT_ACCENT = '#2563eb'; // matches Tailwind blue-600
-let accentColor = DEFAULT_ACCENT;
+// Timer background tint (pastel presets)
+const TIMER_BG_PRESETS = [
+  '#FCE7F3', '#FBCFE8', '#FDE2E4', '#FFE4E6', '#FFE8CC',
+  '#FFF1CC', '#FFF7CC', '#ECFCCB', '#D9F99D', '#DCFCE7',
+  '#BBF7D0', '#CCFBF1', '#CFFAFE', '#BAE6FD', '#DBEAFE',
+  '#E0E7FF', '#E9D5FF', '#F3E8FF', '#EDE9FE', '#E2E8F0'
+];
+let timerBgColor = null; // hex string, or null for default
+const TIMER_BG_STORAGE_KEY = 'timerBgColor';
 // i18n (Korean / English)
 let currentLang = (localStorage.getItem('lang') || '').toLowerCase();
 if (currentLang !== 'ko' && currentLang !== 'en') {
@@ -87,8 +93,6 @@ const AUTO_I18N_PAIRS = [
   { en: 'Save', ko: '저장' },
   { en: 'Add', ko: '추가' },
   { en: 'Clear', ko: '초기화' },
-  { en: 'Reset', ko: '기본값' },
-  { en: 'Theme Color', ko: '테마 색상' },
   { en: 'Clear All', ko: '전체 삭제' },
   { en: 'Clear all history for this session?', ko: '이 세션의 기록을 모두 삭제할까요?' },
   { en: 'Timer', ko: '타이머' },
@@ -135,6 +139,9 @@ const AUTO_I18N_PAIRS = [
   { en: 'WCA Inspection', ko: 'WCA 인스펙션' },
   { en: '15s countdown + voice', ko: '15초 카운트다운 + 음성' },
   { en: 'Hold Duration', ko: '홀드 시간' },
+  { en: 'Timer Background', ko: '타이머 배경' },
+  { en: 'Pastel tint behind timer', ko: '타이머 뒤 배경 톤' },
+  { en: 'Default', ko: '기본' },
 
   // History footer
   { en: 'Avg of All', ko: '전체 평균' },
@@ -342,82 +349,6 @@ function applyLanguageToUI() {
   try { applyAutoI18n(document); } catch (_) {}
 }
 
-// ------------------------------
-// Theme Accent Color ("feel" only)
-// ------------------------------
-function clamp01(x) { return Math.max(0, Math.min(1, x)); }
-function hexToRgb(hex) {
-  const m = /^#?([0-9a-fA-F]{6})$/.exec((hex || '').trim());
-  if (!m) return null;
-  const v = m[1];
-  return {
-    r: parseInt(v.slice(0, 2), 16),
-    g: parseInt(v.slice(2, 4), 16),
-    b: parseInt(v.slice(4, 6), 16),
-  };
-}
-function rgbToHex({ r, g, b }) {
-  const h = (n) => n.toString(16).padStart(2, '0');
-  return `#${h(r)}${h(g)}${h(b)}`;
-}
-function mixRgb(a, b, t) {
-  t = clamp01(t);
-  return {
-    r: Math.round(a.r + (b.r - a.r) * t),
-    g: Math.round(a.g + (b.g - a.g) * t),
-    b: Math.round(a.b + (b.b - a.b) * t),
-  };
-}
-function applyAccentVars(hex) {
-  const rgb = hexToRgb(hex);
-  const base = rgb || hexToRgb(DEFAULT_ACCENT);
-  const hover = mixRgb(base, { r: 255, g: 255, b: 255 }, 0.14);
-  const root = document.documentElement;
-  root.style.setProperty('--accent', rgbToHex(base));
-  root.style.setProperty('--accent-hover', rgbToHex(hover));
-  root.style.setProperty('--accent-soft', `rgba(${base.r}, ${base.g}, ${base.b}, 0.12)`);
-  root.style.setProperty('--accent-soft-2', `rgba(${base.r}, ${base.g}, ${base.b}, 0.20)`);
-  root.style.setProperty('--accent-border', `rgba(${base.r}, ${base.g}, ${base.b}, 0.28)`);
-}
-
-window.setAccentColor = (hex) => {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return;
-  accentColor = rgbToHex(rgb);
-  applyAccentVars(accentColor);
-  try { localStorage.setItem('cubeTimerAccent', accentColor); } catch (_) {}
-  // also persist into the main settings blob on next saveData()
-  try { saveData(); } catch (_) {}
-  if (accentPicker) accentPicker.value = accentColor;
-};
-
-window.resetAccentColor = () => {
-  accentColor = DEFAULT_ACCENT;
-  applyAccentVars(accentColor);
-  try { localStorage.removeItem('cubeTimerAccent'); } catch (_) {}
-  try { saveData(); } catch (_) {}
-  if (accentPicker) accentPicker.value = accentColor;
-};
-
-function initAccentUI() {
-  // Picker
-  if (accentPicker) {
-    // If browser supplies empty, enforce a valid default
-    if (!hexToRgb(accentPicker.value)) accentPicker.value = DEFAULT_ACCENT;
-  }
-  // Swatches
-  if (accentSwatches) {
-    const btns = Array.from(accentSwatches.querySelectorAll('.accent-swatch'));
-    for (const b of btns) {
-      const c = b.getAttribute('data-color');
-      if (c) b.style.setProperty('--swatch', c);
-      b.addEventListener('click', () => {
-        if (c) window.setAccentColor(c);
-      });
-    }
-  }
-}
-
 // Release Notes / Developer Log (Settings에서 언제든 확인 가능)
 const APP_VERSION = '2';
 const RELEASE_NOTES = [
@@ -511,11 +442,14 @@ const precisionToggle = document.getElementById('precisionToggle');
 const manualEntryToggle = document.getElementById('manualEntryToggle');
 const darkModeToggle = document.getElementById('darkModeToggle');
 const wakeLockToggle = document.getElementById('wakeLockToggle');
-const accentPicker = document.getElementById('accentPicker');
-const accentSwatches = document.getElementById('accentSwatches');
 const holdDurationSlider = document.getElementById('holdDurationSlider');
 const holdDurationValue = document.getElementById('holdDurationValue');
 const inspectionToggle = document.getElementById('inspectionToggle');
+// Timer background preset UI (optional - null guard)
+const timerBgSetting = document.getElementById('timerBgSetting');
+const timerBgSwatch = document.getElementById('timerBgSwatch');
+const timerBgPalette = document.getElementById('timerBgPalette');
+const timerBgPaletteGrid = document.getElementById('timerBgPaletteGrid');
 const scrambleDiagram = document.getElementById('scrambleDiagram');
 const eventSelect = document.getElementById('eventSelect');
 // Scramble Loading UI Elements (optional: null guard)
@@ -879,6 +813,108 @@ function toggleDarkMode(checkbox) {
     saveData();
     if(activeTool === 'graph') renderHistoryGraph();
 }
+
+// --- Timer Background (pastel presets) ---
+function hexToRgb(hex) {
+    if (!hex) return null;
+    const h = String(hex).replace('#', '').trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return { r, g, b };
+}
+
+function rgbToRgba(rgb, a) {
+    if (!rgb) return 'transparent';
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+}
+
+function applyTimerBgColor(hex) {
+    if (!document.body) return;
+
+    const root = document.documentElement;
+    if (!hex) {
+        document.body.classList.remove('has-timer-bg');
+        root.style.removeProperty('--timer-bg');
+        root.style.removeProperty('--timer-bg-hover');
+        root.style.removeProperty('--timer-bg-dark');
+        root.style.removeProperty('--timer-bg-dark-hover');
+        if (timerBgSwatch) timerBgSwatch.style.removeProperty('--timer-bg-preview');
+        return;
+    }
+
+    const rgb = hexToRgb(hex);
+    if (!rgb) {
+        applyTimerBgColor(null);
+        return;
+    }
+
+    document.body.classList.add('has-timer-bg');
+    // Keep it subtle
+    root.style.setProperty('--timer-bg', rgbToRgba(rgb, 0.18));
+    root.style.setProperty('--timer-bg-hover', rgbToRgba(rgb, 0.24));
+    root.style.setProperty('--timer-bg-dark', rgbToRgba(rgb, 0.10));
+    root.style.setProperty('--timer-bg-dark-hover', rgbToRgba(rgb, 0.14));
+    if (timerBgSwatch) timerBgSwatch.style.setProperty('--timer-bg-preview', hex);
+}
+
+function renderTimerBgPalette() {
+    if (!timerBgPaletteGrid) return;
+    timerBgPaletteGrid.innerHTML = '';
+    TIMER_BG_PRESETS.forEach((hex) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'timer-bg-choice';
+        btn.style.background = hex;
+        btn.setAttribute('aria-label', hex);
+        if (timerBgColor && timerBgColor.toLowerCase() === hex.toLowerCase()) {
+            btn.classList.add('selected');
+        }
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setTimerBgColor(hex);
+            closeTimerBgPalette();
+        });
+        timerBgPaletteGrid.appendChild(btn);
+    });
+}
+
+function closeTimerBgPalette() {
+    if (timerBgPalette) timerBgPalette.classList.add('hidden');
+}
+
+window.toggleTimerBgPalette = (e) => {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (!timerBgPalette) return;
+    const willOpen = timerBgPalette.classList.contains('hidden');
+    if (willOpen) {
+        renderTimerBgPalette();
+        timerBgPalette.classList.remove('hidden');
+    } else {
+        closeTimerBgPalette();
+    }
+};
+
+window.setTimerBgColor = (hex) => {
+    timerBgColor = hex;
+    if (timerBgColor) localStorage.setItem(TIMER_BG_STORAGE_KEY, timerBgColor);
+    else localStorage.removeItem(TIMER_BG_STORAGE_KEY);
+    applyTimerBgColor(timerBgColor);
+    saveData();
+};
+
+// Close the palette when clicking outside the setting block
+document.addEventListener('click', (e) => {
+    if (!timerBgPalette || timerBgPalette.classList.contains('hidden')) return;
+    if (!timerBgSetting) return;
+    if (timerBgSetting.contains(e.target)) return;
+    closeTimerBgPalette();
+});
 // --- Wake Lock ---
 async function requestWakeLock() {
     try {
@@ -1201,8 +1237,7 @@ function exportData() {
             precision, 
             isAo5Mode, 
             currentEvent, 
-            holdDuration,
-            accentColor,
+            holdDuration, 
             isDarkMode: document.documentElement.classList.contains('dark'), 
             isWakeLockEnabled,
             isInspectionMode 
@@ -1234,7 +1269,7 @@ function importData(event) {
                     isAo5Mode = data.settings.isAo5Mode !== undefined ? data.settings.isAo5Mode : true;
                     currentEvent = data.settings.currentEvent || '333';
                     holdDuration = data.settings.holdDuration || 300;
-                    accentColor = data.settings.accentColor || DEFAULT_ACCENT;
+                    timerBgColor = data.settings.timerBgColor || localStorage.getItem(TIMER_BG_STORAGE_KEY) || null;
                     isWakeLockEnabled = data.settings.isWakeLockEnabled || false;
                     const isDark = data.settings.isDarkMode || false;
                     isInspectionMode = data.settings.isInspectionMode || false;
@@ -1251,11 +1286,7 @@ function importData(event) {
                         updateHoldDuration(holdDurationSlider.value);
                     }
                     document.documentElement.classList.toggle('dark', isDark);
-                    try {
-                        applyAccentVars(accentColor);
-                        localStorage.setItem('cubeTimerAccent', accentColor);
-                        if (accentPicker && hexToRgb(accentColor)) accentPicker.value = accentColor;
-                    } catch (_) {}
+                    applyTimerBgColor(timerBgColor);
                     if(isWakeLockEnabled) requestWakeLock();
                 }
                 saveData();
@@ -1276,13 +1307,16 @@ function saveData() {
             isAo5Mode, 
             currentEvent, 
             holdDuration,
-            accentColor,
+            timerBgColor,
             isDarkMode: document.documentElement.classList.contains('dark'),
             isWakeLockEnabled,
             isInspectionMode
         }
     };
     localStorage.setItem('cubeTimerData_v5', JSON.stringify(data));
+    // Also keep a dedicated key for resilience across data versions
+    if (timerBgColor) localStorage.setItem(TIMER_BG_STORAGE_KEY, timerBgColor);
+    else localStorage.removeItem(TIMER_BG_STORAGE_KEY);
 }
 function loadData() {
     const saved = localStorage.getItem('cubeTimerData_v5') || localStorage.getItem('cubeTimerData_v4');
@@ -1296,8 +1330,7 @@ function loadData() {
                 isAo5Mode = data.settings.isAo5Mode !== undefined ? data.settings.isAo5Mode : true;
                 currentEvent = data.settings.currentEvent || '333';
                 holdDuration = data.settings.holdDuration || 300;
-                // Accent color (backward compatible)
-                accentColor = data.settings.accentColor || localStorage.getItem('cubeTimerAccent') || DEFAULT_ACCENT;
+                timerBgColor = data.settings.timerBgColor || localStorage.getItem(TIMER_BG_STORAGE_KEY) || null;
                 const isDark = data.settings.isDarkMode || false;
                 isWakeLockEnabled = data.settings.isWakeLockEnabled || false;
                 isInspectionMode = data.settings.isInspectionMode || false;
@@ -1314,9 +1347,7 @@ function loadData() {
                     holdDurationValue.innerText = holdDurationSlider.value + "s";
                 }
                 document.documentElement.classList.toggle('dark', isDark);
-                // Apply accent after toggling root classes
-                try { applyAccentVars(accentColor); } catch (_) {}
-                if (accentPicker && hexToRgb(accentColor)) accentPicker.value = accentColor;
+                applyTimerBgColor(timerBgColor);
                 if(isWakeLockEnabled) requestWakeLock();
                 const conf = configs[currentEvent];
                 if (eventSelect) eventSelect.value = currentEvent;
@@ -1325,14 +1356,6 @@ function loadData() {
         } catch (e) { console.error("Load failed", e); }
     }
     initSessionIfNeeded(currentEvent);
-
-    // Ensure accent is always applied (even if no v5 data yet)
-    try {
-        const storedAccent = localStorage.getItem('cubeTimerAccent');
-        if (storedAccent && hexToRgb(storedAccent)) accentColor = storedAccent;
-        applyAccentVars(accentColor);
-        if (accentPicker && hexToRgb(accentColor)) accentPicker.value = accentColor;
-    } catch (_) {}
     
     if (!isBtConnected) {
         statusHint.innerText = isInspectionMode ? "Start Inspection" : "Hold to Ready";
@@ -2410,7 +2433,6 @@ document.getElementById('clearHistoryBtn').onclick = () => {
   };
 };
 loadData();
-initAccentUI();
 applyLanguageToUI();
 changeEvent(currentEvent);
 // Check for updates on load
