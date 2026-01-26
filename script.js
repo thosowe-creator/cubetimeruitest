@@ -1980,28 +1980,25 @@ Object.assign(configs, {  'p_oll': { moves: configs['333'].moves, len: configs['
   'p_zbll': { moves: configs['333'].moves, len: configs['333'].len, n: 3, cat: 'practice' },
 });
 
-let currentPracticeCase = 'any';
 
-// Practice case selection state (per practice event)
-// Only two modes are supported: 'random' and 'selected'
+// --- Practice case state (ZBLS/ZBLL) ---
+// Constraints: only two modes are supported: 'random' and 'selected'
 const PRACTICE_CASE_STATE = {
   p_zbls: { mode: 'random', selected: new Set() },
   p_zbll: { mode: 'random', selected: new Set() },
 };
 
 function _getPracticeCaseState(eventId) {
-  if (!PRACTICE_CASE_STATE[eventId]) {
-    PRACTICE_CASE_STATE[eventId] = { mode: 'random', selected: new Set() };
-  }
+  if (!PRACTICE_CASE_STATE[eventId]) PRACTICE_CASE_STATE[eventId] = { mode: 'random', selected: new Set() };
   return PRACTICE_CASE_STATE[eventId];
 }
 
-// Ensure the case selector UI exists (button + summary). We intentionally do NOT render long inline tabs.
+// Ensure the case selector UI exists (button + summary). We do NOT render long inline tabs.
 function ensureCaseSelectorDOM() {
   const wrap = document.getElementById('caseSelectWrap');
   if (!wrap) return;
 
-  // Label exists in HTML; if not, create it.
+  // Some variants had missing children; enforce required nodes
   let label = wrap.querySelector('[data-case-label]');
   if (!label) {
     label = document.createElement('span');
@@ -2018,6 +2015,7 @@ function ensureCaseSelectorDOM() {
     btn.type = 'button';
     btn.className = 'case-open-btn';
     btn.onclick = () => window.openPracticeCaseModal();
+    btn.textContent = (currentLang === 'ko') ? '케이스 선택' : 'Select cases';
     wrap.appendChild(btn);
   }
 
@@ -2033,9 +2031,20 @@ function ensureCaseSelectorDOM() {
   btn.textContent = (currentLang === 'ko') ? '케이스 선택' : 'Select cases';
 }
 
-function isPracticeEvent(eventId) {
-  return !!PRACTICE_EVENTS[eventId];
-}
+window.changePracticeCase = (val) => {
+  // Back-compat: map old single-value selection into the new state
+  const v = String(val || 'any');
+  const st = _getPracticeCaseState(currentEvent);
+  if (v === 'any') {
+    st.mode = 'random';
+    st.selected = new Set();
+  } else {
+    st.mode = 'selected';
+    st.selected = new Set([v]);
+  }
+  _updateCaseSummary();
+  if (isPracticeEvent(currentEvent)) generateScramble();
+};
 
 function getPracticeCaseOptions(eventId) {
   if (eventId === 'p_zbls') {
@@ -2057,10 +2066,8 @@ function getPracticeCaseOptions(eventId) {
 }
 
 function _updateCaseSummary() {
-  const wrap = document.getElementById('caseSelectWrap');
   const summary = document.getElementById('caseSummary');
-  if (!wrap || !summary) return;
-
+  if (!summary) return;
   const st = _getPracticeCaseState(currentEvent);
   if (!st) { summary.textContent = ''; return; }
 
@@ -2068,33 +2075,13 @@ function _updateCaseSummary() {
     summary.textContent = (currentLang === 'ko') ? '랜덤' : 'Random';
     return;
   }
-
   const count = st.selected ? st.selected.size : 0;
   if (count <= 0) {
     summary.textContent = (currentLang === 'ko') ? '선택 없음 (랜덤으로 동작)' : 'None selected (falls back to random)';
     return;
   }
-  summary.textContent = (currentLang === 'ko')
-    ? `선택 ${count}개`
-    : `${count} selected`;
+  summary.textContent = (currentLang === 'ko') ? `선택 ${count}개` : `${count} selected`;
 }
-
-// Back-compat: some code paths may still call changePracticeCase(val).
-// We map it onto the new 2-mode model.
-function changePracticeCase(val) {
-  const v = String(val || 'any');
-  const st = _getPracticeCaseState(currentEvent);
-  if (v === 'any') {
-    st.mode = 'random';
-    st.selected = new Set();
-  } else {
-    st.mode = 'selected';
-    st.selected = new Set([v]);
-  }
-  _updateCaseSummary();
-  if (isPracticeEvent(currentEvent)) generateScramble();
-}
-window.changePracticeCase = changePracticeCase;
 
 function setCaseSelectorVisible(visible) {
   const wrap = document.getElementById('caseSelectWrap');
@@ -2110,11 +2097,34 @@ function setCaseSelectorVisible(visible) {
 function refreshPracticeUI() {
   ensureCaseSelectorDOM();
   const options = getPracticeCaseOptions(currentEvent);
-  // Only show the selector when the current event has case options
   setCaseSelectorVisible(!!options);
+
+  // Keep hidden <select> in sync for any legacy code paths
+  const sel = document.getElementById('caseSelect');
+  if (sel && options) {
+    sel.innerHTML = '';
+    options.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = (k === 'any') ? ((currentLang === 'ko') ? '랜덤' : 'Random') : String(k);
+      sel.appendChild(opt);
+    });
+    // Select value: if selected mode with single selection, reflect it; else 'any'
+    const st = _getPracticeCaseState(currentEvent);
+    const single = (st.mode === 'selected' && st.selected && st.selected.size === 1) ? [...st.selected][0] : 'any';
+    sel.value = options.includes(single) ? single : 'any';
+  }
 }
 
 // --- Practice Case Modal ---
+function _updateCaseModalCounts() {
+  const st = _getPracticeCaseState(currentEvent);
+  const countEl = document.getElementById('caseSelectedCount');
+  if (!countEl) return;
+  const count = st.selected ? st.selected.size : 0;
+  countEl.textContent = (currentLang === 'ko') ? `선택됨: ${count}개` : `Selected: ${count}`;
+}
+
 window.openPracticeCaseModal = () => {
   const options = getPracticeCaseOptions(currentEvent);
   if (!options) return;
@@ -2124,18 +2134,16 @@ window.openPracticeCaseModal = () => {
   const listEl = document.getElementById('caseModalList');
   const radioRandom = document.getElementById('caseModeRandom');
   const radioSelected = document.getElementById('caseModeSelected');
-
   if (!overlay || !titleEl || !listEl || !radioRandom || !radioSelected) return;
 
   const st = _getPracticeCaseState(currentEvent);
+
   const eventLabel = (currentEvent === 'p_zbls') ? 'ZBLS' : (currentEvent === 'p_zbll' ? 'ZBLL' : 'Case');
   titleEl.textContent = (currentLang === 'ko') ? `${eventLabel} 케이스 선택` : `Select ${eventLabel} cases`;
 
-  // Mode radios
   radioRandom.checked = (st.mode === 'random');
   radioSelected.checked = (st.mode === 'selected');
 
-  // Build list
   const keys = options.filter(k => k !== 'any');
   listEl.innerHTML = '';
 
@@ -2151,93 +2159,63 @@ window.openPracticeCaseModal = () => {
     cb.disabled = (st.mode !== 'selected');
 
     cb.onchange = () => {
-      const state = _getPracticeCaseState(currentEvent);
-      if (!state.selected) state.selected = new Set();
-      if (cb.checked) state.selected.add(String(k));
-      else state.selected.delete(String(k));
+      if (!st.selected) st.selected = new Set();
+      if (cb.checked) st.selected.add(String(k));
+      else st.selected.delete(String(k));
       _updateCaseModalCounts();
     };
 
     const txt = document.createElement('span');
-    txt.className = 'case-row-text';
     txt.textContent = String(k);
 
     row.appendChild(cb);
     row.appendChild(txt);
+
     listEl.appendChild(row);
   });
 
-  // Hook mode changes
-  const applyMode = (mode) => {
-    const state = _getPracticeCaseState(currentEvent);
-    state.mode = mode;
-    // Enable/disable checkboxes
-    listEl.querySelectorAll('input.case-checkbox').forEach(inp => {
-      inp.disabled = (mode !== 'selected');
+  const updateDisabled = () => {
+    const disabled = !radioSelected.checked;
+    listEl.querySelectorAll('input.case-checkbox').forEach(el => {
+      el.disabled = disabled;
+      const parent = el.closest('.case-row');
+      if (parent) parent.classList.toggle('disabled', disabled);
     });
-    _updateCaseModalCounts();
   };
 
-  radioRandom.onchange = () => applyMode('random');
-  radioSelected.onchange = () => applyMode('selected');
+  radioRandom.onchange = () => { st.mode = 'random'; updateDisabled(); _updateCaseModalCounts(); };
+  radioSelected.onchange = () => { st.mode = 'selected'; updateDisabled(); _updateCaseModalCounts(); };
 
+  updateDisabled();
   _updateCaseModalCounts();
-  overlay.classList.add('active');
+
+  overlay.classList.add('show');
 };
 
 window.closePracticeCaseModal = () => {
   const overlay = document.getElementById('caseModalOverlay');
-  if (overlay) overlay.classList.remove('active');
+  if (overlay) overlay.classList.remove('show');
 };
 
 window.applyPracticeCaseModal = () => {
-  // If user chose "selected" but selected nothing, we keep mode but fallback in picker.
+  const st = _getPracticeCaseState(currentEvent);
+  // If 'selected' but nothing chosen, fall back to random to avoid dead state
+  if (st.mode === 'selected' && (!st.selected || st.selected.size === 0)) {
+    st.mode = 'random';
+    st.selected = new Set();
+  }
   _updateCaseSummary();
   window.closePracticeCaseModal();
   if (isPracticeEvent(currentEvent)) generateScramble();
 };
 
-window.caseModalSelectAll = () => {
-  const options = getPracticeCaseOptions(currentEvent);
-  if (!options) return;
-  const st = _getPracticeCaseState(currentEvent);
-  st.mode = 'selected';
-  const keys = options.filter(k => k !== 'any').map(String);
-  st.selected = new Set(keys);
-  // refresh list if open
-  const listEl = document.getElementById('caseModalList');
-  if (listEl) {
-    listEl.querySelectorAll('input.case-checkbox').forEach(inp => { inp.disabled = false; inp.checked = true; });
-  }
-  const radioSelected = document.getElementById('caseModeSelected');
-  if (radioSelected) radioSelected.checked = true;
-  _updateCaseModalCounts();
+// Make sure practice UI is refreshed when the page initializes and when event changes
+const _origChangeEvent = window.changeEvent;
+window.changeEvent = function(e) {
+  const v = String(e || '').trim();
+  if (_origChangeEvent) _origChangeEvent(v);
+  refreshPracticeUI();
 };
-
-window.caseModalClearAll = () => {
-  const st = _getPracticeCaseState(currentEvent);
-  st.selected = new Set();
-  const listEl = document.getElementById('caseModalList');
-  if (listEl) {
-    listEl.querySelectorAll('input.case-checkbox').forEach(inp => { inp.checked = false; });
-  }
-  _updateCaseModalCounts();
-};
-
-function _updateCaseModalCounts() {
-  const st = _getPracticeCaseState(currentEvent);
-  const countEl = document.getElementById('caseModalCount');
-  if (!countEl) return;
-  const count = st.selected ? st.selected.size : 0;
-  if (st.mode === 'random') {
-    countEl.textContent = (currentLang === 'ko') ? '모드: 랜덤' : 'Mode: Random';
-  } else {
-    countEl.textContent = (currentLang === 'ko')
-      ? `모드: 선택 (${count}개)`
-      : `Mode: Selected (${count})`;
-  }
-}
-
 // --- Route 1 scramble builders (adapted from Alg-Trainer RubiksCube.js) ---
 function _cleanAlg(s) {
   // Alg-Trainer datasets sometimes include multiple variants separated by '/'.
@@ -2345,27 +2323,13 @@ function _pickRandomAlgFromSet(eventId) {
   }
   if (eventId === 'p_zbls') {
     const keys = Object.keys(ZBLS || {});
-    const st = _getPracticeCaseState(eventId);
-    let chosenKey = 'any';
-    if (st && st.mode === 'selected' && st.selected && st.selected.size) {
-      const selected = Array.from(st.selected).filter(k => keys.includes(String(k)));
-      if (selected.length) chosenKey = String(selected[_randInt(selected.length)]);
-    }
-    if (chosenKey === 'any') chosenKey = keys[_randInt(keys.length)];
-    currentPracticeCase = chosenKey;
+    const chosenKey = (currentPracticeCase && currentPracticeCase !== 'any') ? currentPracticeCase : keys[_randInt(keys.length)];
     const arr = ZBLS[chosenKey] || [];
     return arr.length ? arr[_randInt(arr.length)] : '';
   }
   if (eventId === 'p_zbll') {
     const keys = Object.keys(algdbZBLL || {});
-    const st = _getPracticeCaseState(eventId);
-    let chosenKey = 'any';
-    if (st && st.mode === 'selected' && st.selected && st.selected.size) {
-      const selected = Array.from(st.selected).filter(k => keys.includes(String(k)));
-      if (selected.length) chosenKey = String(selected[_randInt(selected.length)]);
-    }
-    if (chosenKey === 'any') chosenKey = keys[_randInt(keys.length)];
-    currentPracticeCase = chosenKey;
+    const chosenKey = (currentPracticeCase && currentPracticeCase !== 'any') ? currentPracticeCase : keys[_randInt(keys.length)];
     const arr = algdbZBLL[chosenKey] || [];
     return arr.length ? arr[_randInt(arr.length)] : '';
   }
