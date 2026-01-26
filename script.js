@@ -1,7 +1,4 @@
 let solves = [];
-
-// DEBUG: force show case selector UI (temporary)
-window.__FORCE_CASE_UI__ = true;
 let sessions = {};
 let currentEvent = '333';
 let isRunning = false;
@@ -2001,8 +1998,7 @@ window.changePracticeCase = (val) => {
 function getPracticeCaseOptions(eventId) {
   if (eventId === 'p_zbls') {
     // keys: "1".."41"
-    const zb = (typeof ZBLS !== 'undefined' && ZBLS) ? ZBLS : ((typeof algdbZBLS !== 'undefined' && algdbZBLS) ? algdbZBLS : {});
-    const keys = Object.keys(zb || {}).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
+    const keys = Object.keys(ZBLS || {}).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
     return ['any', ...keys];
   }
   if (eventId === 'p_zbll') {
@@ -2048,7 +2044,34 @@ function renderCaseTabs(options) {
   updateCaseTabActive();
 }
 
-function setCaseSelectorVisible(visible, options = null) {
+function ensureCaseSelectorDOM() {
+  const wrap = document.getElementById('caseSelectWrap');
+  if (!wrap) return;
+  // If the wrap exists but expected children are missing (some deployments have an empty div),
+  // recreate the minimal DOM so the case selector can render.
+  let tabs = document.getElementById('caseTabs');
+  let sel = document.getElementById('caseSelect');
+  if (!tabs) {
+    // Optional label
+    const label = document.createElement('span');
+    label.textContent = 'Case';
+    label.className = 'text-[10px] font-black uppercase tracking-widest text-slate-400';
+    wrap.appendChild(label);
+    tabs = document.createElement('div');
+    tabs.id = 'caseTabs';
+    tabs.className = 'flex items-center gap-1 overflow-x-auto max-w-[46vw] scrollbar-hide';
+    wrap.appendChild(tabs);
+  }
+  if (!sel) {
+    sel = document.createElement('select');
+    sel.id = 'caseSelect';
+    sel.className = 'hidden';
+    sel.onchange = function () { window.changePracticeCase?.(this.value); };
+    wrap.appendChild(sel);
+  }
+}
+
+function setCaseSelectorVisible\(visible, options = null\) {
   const wrap = document.getElementById('caseSelectWrap');
   const sel = document.getElementById('caseSelect');
   const tabs = document.getElementById('caseTabs');
@@ -2079,15 +2102,8 @@ function setCaseSelectorVisible(visible, options = null) {
 }
 
 function refreshPracticeUI() {
-  const force = (typeof window !== 'undefined') && window.__FORCE_CASE_UI__ === true;
   const isP = isPracticeEvent(currentEvent);
   const options = isP ? getPracticeCaseOptions(currentEvent) : null;
-  if (force) {
-    // Even if event isn't marked as practice due to a mismatch, show the UI for debugging.
-    const fallback = options || ['any','debug'];
-    setCaseSelectorVisible(true, fallback);
-    return;
-  }
   setCaseSelectorVisible(!!options, options);
 }
 
