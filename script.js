@@ -1,4 +1,7 @@
 let solves = [];
+
+// DEBUG: force show case selector UI (temporary)
+window.__FORCE_CASE_UI__ = true;
 let sessions = {};
 let currentEvent = '333';
 let isRunning = false;
@@ -1998,7 +2001,8 @@ window.changePracticeCase = (val) => {
 function getPracticeCaseOptions(eventId) {
   if (eventId === 'p_zbls') {
     // keys: "1".."41"
-    const keys = Object.keys(ZBLS || {}).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
+    const zb = (typeof ZBLS !== 'undefined' && ZBLS) ? ZBLS : ((typeof algdbZBLS !== 'undefined' && algdbZBLS) ? algdbZBLS : {});
+    const keys = Object.keys(zb || {}).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
     return ['any', ...keys];
   }
   if (eventId === 'p_zbll') {
@@ -2075,8 +2079,15 @@ function setCaseSelectorVisible(visible, options = null) {
 }
 
 function refreshPracticeUI() {
+  const force = (typeof window !== 'undefined') && window.__FORCE_CASE_UI__ === true;
   const isP = isPracticeEvent(currentEvent);
   const options = isP ? getPracticeCaseOptions(currentEvent) : null;
+  if (force) {
+    // Even if event isn't marked as practice due to a mismatch, show the UI for debugging.
+    const fallback = options || ['any','debug'];
+    setCaseSelectorVisible(true, fallback);
+    return;
+  }
   setCaseSelectorVisible(!!options, options);
 }
 
@@ -3069,14 +3080,10 @@ function changeEvent(e) {
     if (eventSelect && eventSelect.value !== e) eventSelect.value = e;
     const conf = configs[e];
     initSessionIfNeeded(e);
-    // Practice UI (case selector) — hard gate by event id to avoid any state desync
-    if (e === 'p_zbls' || e === 'p_zbll') {
-        const options = getPracticeCaseOptions(e) || ['any'];
-        setCaseSelectorVisible(true, options);
-    } else {
-        setCaseSelectorVisible(false);
-    }
-// Reset lazy loading on event change
+    // Practice UI (case selector)
+    refreshPracticeUI();
+    
+    // Reset lazy loading on event change
     displayedSolvesCount = SOLVES_BATCH_SIZE;
     if(historyList) historyList.scrollTop = 0;
     // Legacy tab UI (hidden). Guard to avoid null refs.
@@ -4425,6 +4432,3 @@ applyLanguageToUI();
 changeEvent(currentEvent);
 // Check for updates on load
 checkUpdateLog();
-
-// Ensure inline handlers can always call changeEvent
-window.changeEvent = changeEvent;
