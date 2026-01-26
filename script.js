@@ -2046,6 +2046,70 @@ function _cleanAlg(s) {
     .trim();
 }
 
+/**
+ * Convert alg text (including practice notation like u/r/l and M/E/S) into a form
+ * accepted by <scramble-display> (cubing.js parser).
+ * - Keeps the original scramble text untouched for display.
+ * - Used ONLY for the diagram attribute to avoid parseAlg errors.
+ */
+function normalizeAlgForDiagram(algText) {
+  let s = String(algText || '').replace(/\n/g, ' ');
+  // Ensure separators around parentheses/brackets if any slipped in (defensive)
+  s = s.replace(/([()\[\]{},])/g, ' $1 ').replace(/\s+/g, ' ').trim();
+  if (!s) return s;
+
+  const tokens = s.split(' ').filter(Boolean);
+  const out = [];
+  for (const t0 of tokens) {
+    const t = t0.trim();
+    if (!t) continue;
+
+    // Wide moves in lowercase -> standard wide notation
+    // e.g., u, u', u2 -> Uw, Uw', Uw2
+    const mWideLower = t.match(/^([udlrfb])(2|')?$/);
+    if (mWideLower) {
+      const face = mWideLower[1];
+      const suf = mWideLower[2] || '';
+      const map = { u:'Uw', d:'Dw', l:'Lw', r:'Rw', f:'Fw', b:'Bw' };
+      out.push(map[face] + suf);
+      continue;
+    }
+
+    // Slice moves -> wide + face to isolate slice.
+    // Derivations:
+    //   Rw R' = M'  => M  = Rw' R
+    //   Uw U' = E'  => E  = Uw' U
+    //   Fw F' = S   => S' = Fw' F
+    const mSlice = t.match(/^([MES])(2|')?$/);
+    if (mSlice) {
+      const slice = mSlice[1];
+      const suf = mSlice[2] || '';
+      const pushSeq = (seq) => out.push(...seq.split(' ').filter(Boolean));
+
+      if (slice === 'M') {
+        if (suf === "'") pushSeq("Rw R'");
+        else if (suf === "2") pushSeq("Rw2 R2");
+        else pushSeq("Rw' R");
+      } else if (slice === 'E') {
+        if (suf === "'") pushSeq("Uw U'");
+        else if (suf === "2") pushSeq("Uw2 U2");
+        else pushSeq("Uw' U");
+      } else if (slice === 'S') {
+        if (suf === "'") pushSeq("Fw' F");
+        else if (suf === "2") pushSeq("Fw2 F2");
+        else pushSeq("Fw F'");
+      }
+      continue;
+    }
+
+    // Most other tokens are fine (R, U, x, y, z, Uw, etc.)
+    out.push(t);
+  }
+
+  return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+
 // --- Practice alg helpers (string-level, no cube simulation) ---
 // We only use these for practice events (F2L/OLL/PLL/ZBLS/ZBLL) so we don't touch normal scramble logic.
 function _invertMoveToken(tok) {
@@ -2072,55 +2136,7 @@ function _invertAlgString(algText) {
 // - slice moves M/E/S => wide + face combos (no slice tokens needed)
 // This conversion is ONLY for the scramble image (diagram). Text display stays original.
 function _practiceAlgForDiagram(algText) {
-  const parts = _cleanAlg(algText).split(' ').filter(Boolean);
-  const out = [];
-  const invSuffix = (s) => (s === "'") ? '' : (s === '2' ? '2' : "'");
-  const parse = (tok) => {
-    const m = tok.match(/^([A-Za-z]+)(2|')?$/);
-    if (!m) return { base: tok, suf: '' };
-    return { base: m[1], suf: m[2] || '' };
-  };
-  const wideMap = { u: 'Uw', d: 'Dw', l: 'Lw', r: 'Rw', f: 'Fw', b: 'Bw' };
-
-  for (const tok of parts) {
-    const { base, suf } = parse(tok);
-    // Lowercase single-face = wide move
-    if (base.length === 1 && wideMap[base]) {
-      out.push(wideMap[base] + suf);
-      continue;
-    }
-    // Slice moves -> (wide + face) decomposition
-    if (base === 'M') {
-      // M  = Rw' R
-      // M' = R' Rw
-      // M2 = R2 Rw2
-      if (suf === "'") out.push("R'", 'Rw');
-      else if (suf === '2') out.push('R2', 'Rw2');
-      else out.push("Rw'", 'R');
-      continue;
-    }
-    if (base === 'E') {
-      // E  = Uw' U
-      // E' = U' Uw
-      // E2 = U2 Uw2
-      if (suf === "'") out.push("U'", 'Uw');
-      else if (suf === '2') out.push('U2', 'Uw2');
-      else out.push("Uw'", 'U');
-      continue;
-    }
-    if (base === 'S') {
-      // S  = F' Fw
-      // S' = Fw' F
-      // S2 = F2 Fw2
-      if (suf === "'") out.push("Fw'", 'F');
-      else if (suf === '2') out.push('F2', 'Fw2');
-      else out.push("F'", 'Fw');
-      continue;
-    }
-    // Keep anything else (R, U, x, y, z, Rw, etc.)
-    out.push(base + suf);
-  }
-  return _cleanAlg(out.join(' '));
+  return normalizeAlgForDiagram(algText);
 }
 function _randInt(n) { return Math.floor(Math.random() * n); }
 
