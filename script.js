@@ -1988,6 +1988,26 @@ function ensureCaseSelectorDOM() {
   const wrap = document.getElementById('caseSelectWrap');
   if (!wrap) return;
 
+  // --- [FIX] Ensure the case selector is placed inside a visible container ---
+  // In this UI, #caseSelectWrap was originally located under #group-practice,
+  // which is hidden by default (legacy tab UI). When the user selects ZBLS/ZBLL
+  // via the main dropdown, the parent stays hidden, so the case selector never
+  // appears even though we remove 'hidden' from the wrap itself.
+  //
+  // Move #caseSelectWrap right under the main event selector section (always visible),
+  // unless it is already there.
+  try {
+    const evSel = document.getElementById('eventSelect');
+    if (evSel) {
+      // Prefer the immediate container around the select
+      const anchor = evSel.closest('div.w-full') || evSel.parentElement;
+      if (anchor && wrap.parentElement !== anchor.parentElement) {
+        // Insert wrap right after the anchor container
+        anchor.insertAdjacentElement('afterend', wrap);
+      }
+    }
+  } catch (_) {}
+
   // If a full layout is already present, do nothing.
   let tabs = document.getElementById('caseTabs');
   let sel = document.getElementById('caseSelect');
