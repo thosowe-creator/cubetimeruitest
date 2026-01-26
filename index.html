@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko"
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -183,6 +183,28 @@
                     </select>
                 </div>
 
+                <!-- Theme Accent Color (light mode only – just changes the "feel") -->
+                <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Theme Color</p>
+                            <p class="text-[9px] font-semibold text-slate-400">Accent / 포인트 색상</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="accentResetBtn" onclick="resetAccentColor()" class="px-3 py-2 text-[10px] font-black uppercase tracking-tighter text-slate-500 dark:text-slate-300 bg-white/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-xl active:scale-95 transition-all">Reset</button>
+                            <input id="accentPicker" type="color" value="#2563eb" onchange="setAccentColor(this.value)" class="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent p-1 cursor-pointer" aria-label="Theme accent color">
+                        </div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2" id="accentSwatches">
+                        <button type="button" class="accent-swatch" data-color="#2563eb" style="--swatch:#2563eb" aria-label="Blue"></button>
+                        <button type="button" class="accent-swatch" data-color="#7c3aed" style="--swatch:#7c3aed" aria-label="Purple"></button>
+                        <button type="button" class="accent-swatch" data-color="#db2777" style="--swatch:#db2777" aria-label="Pink"></button>
+                        <button type="button" class="accent-swatch" data-color="#ea580c" style="--swatch:#ea580c" aria-label="Orange"></button>
+                        <button type="button" class="accent-swatch" data-color="#16a34a" style="--swatch:#16a34a" aria-label="Green"></button>
+                        <button type="button" class="accent-swatch" data-color="#0891b2" style="--swatch:#0891b2" aria-label="Cyan"></button>
+                    </div>
+                </div>
+
                 <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl">
                     <div><p class="text-xs font-bold text-slate-600 dark:text-slate-300">Prevent Sleep (Wake Lock)</p></div>
                     <label class="switch"><input type="checkbox" id="wakeLockToggle" onchange="toggleWakeLock(this)"><span class="slider"></span></label>
@@ -345,13 +367,6 @@
                                 <option value="555bf">5BLD</option>
                                 <option value="333mbf">Multi-BLD</option>
                             </optgroup>
-                            <optgroup label="Practice">
-                                <option value="prac_f2l">F2L</option>
-                                <option value="prac_oll">OLL</option>
-                                <option value="prac_pll">PLL</option>
-                                <option value="prac_zbls">ZBLS</option>
-                                <option value="prac_zbll">ZBLL</option>
-                            </optgroup>
                         </select>
                         <!-- (UX) 스크롤 선택 기능은 유지하되 안내 문구는 제거 -->
                     </div>
@@ -402,9 +417,6 @@
                                 <span id="scrambleLoadingText" class="text-[11px] font-bold text-slate-400">Loading scramble…</span>
                             </div>
                         </div>
-
-                        <!-- Practice label (only shown for Practice events) -->
-                        <div id="practiceLabel" class="hidden practice-label mb-2"></div>
 
                         <div id="scramble" class="scramble-text font-bold text-slate-600 dark:text-slate-300 whitespace-pre-wrap text-center leading-relaxed">Generating...</div>
 
@@ -528,26 +540,7 @@
         </button>
     </nav>
 
-    <!-- min2phase.js (Node/CommonJS build) browser shim + loader -->
-    <script>
-        // Some min2phase builds export via CommonJS (module.exports). Browsers don't have `module`,
-        // so we provide a tiny shim. Safe even if the build is already browser-friendly.
-        window.module = window.module || { exports: {} };
-        window.exports = window.exports || window.module.exports;
-    </script>
-    <script src="min2phase.js"></script>
-    <script>
-        // Expose the library consistently.
-        // If min2phase attaches to global, keep it; otherwise grab it from module.exports.
-        if (!window.min2phase && window.module && window.module.exports) {
-            window.min2phase = window.module.exports;
-        }
-        if (!window.Search && window.min2phase && window.min2phase.Search) {
-            window.Search = window.min2phase.Search;
-        }
-    </script>
-
-    <!-- App script (must be after min2phase) -->
+    <!-- 외부 스크립트 연결 -->
     <script src="script.js"></script>
 </body>
 </html>

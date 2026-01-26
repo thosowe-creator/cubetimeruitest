@@ -27,6 +27,10 @@ let inspectionPenalty = null; // null, '+2', 'DNF'
 let hasSpoken8 = false;
 let hasSpoken12 = false;
 let lastStopTimestamp = 0;
+
+// Accent color (simple theme feel)
+const DEFAULT_ACCENT = '#2563eb'; // matches Tailwind blue-600
+let accentColor = DEFAULT_ACCENT;
 // i18n (Korean / English)
 let currentLang = (localStorage.getItem('lang') || '').toLowerCase();
 if (currentLang !== 'ko' && currentLang !== 'en') {
@@ -83,6 +87,8 @@ const AUTO_I18N_PAIRS = [
   { en: 'Save', ko: '저장' },
   { en: 'Add', ko: '추가' },
   { en: 'Clear', ko: '초기화' },
+  { en: 'Reset', ko: '기본값' },
+  { en: 'Theme Color', ko: '테마 색상' },
   { en: 'Clear All', ko: '전체 삭제' },
   { en: 'Clear all history for this session?', ko: '이 세션의 기록을 모두 삭제할까요?' },
   { en: 'Timer', ko: '타이머' },
@@ -336,12 +342,88 @@ function applyLanguageToUI() {
   try { applyAutoI18n(document); } catch (_) {}
 }
 
+// ------------------------------
+// Theme Accent Color ("feel" only)
+// ------------------------------
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec((hex || '').trim());
+  if (!m) return null;
+  const v = m[1];
+  return {
+    r: parseInt(v.slice(0, 2), 16),
+    g: parseInt(v.slice(2, 4), 16),
+    b: parseInt(v.slice(4, 6), 16),
+  };
+}
+function rgbToHex({ r, g, b }) {
+  const h = (n) => n.toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+function mixRgb(a, b, t) {
+  t = clamp01(t);
+  return {
+    r: Math.round(a.r + (b.r - a.r) * t),
+    g: Math.round(a.g + (b.g - a.g) * t),
+    b: Math.round(a.b + (b.b - a.b) * t),
+  };
+}
+function applyAccentVars(hex) {
+  const rgb = hexToRgb(hex);
+  const base = rgb || hexToRgb(DEFAULT_ACCENT);
+  const hover = mixRgb(base, { r: 255, g: 255, b: 255 }, 0.14);
+  const root = document.documentElement;
+  root.style.setProperty('--accent', rgbToHex(base));
+  root.style.setProperty('--accent-hover', rgbToHex(hover));
+  root.style.setProperty('--accent-soft', `rgba(${base.r}, ${base.g}, ${base.b}, 0.12)`);
+  root.style.setProperty('--accent-soft-2', `rgba(${base.r}, ${base.g}, ${base.b}, 0.20)`);
+  root.style.setProperty('--accent-border', `rgba(${base.r}, ${base.g}, ${base.b}, 0.28)`);
+}
+
+window.setAccentColor = (hex) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return;
+  accentColor = rgbToHex(rgb);
+  applyAccentVars(accentColor);
+  try { localStorage.setItem('cubeTimerAccent', accentColor); } catch (_) {}
+  // also persist into the main settings blob on next saveData()
+  try { saveData(); } catch (_) {}
+  if (accentPicker) accentPicker.value = accentColor;
+};
+
+window.resetAccentColor = () => {
+  accentColor = DEFAULT_ACCENT;
+  applyAccentVars(accentColor);
+  try { localStorage.removeItem('cubeTimerAccent'); } catch (_) {}
+  try { saveData(); } catch (_) {}
+  if (accentPicker) accentPicker.value = accentColor;
+};
+
+function initAccentUI() {
+  // Picker
+  if (accentPicker) {
+    // If browser supplies empty, enforce a valid default
+    if (!hexToRgb(accentPicker.value)) accentPicker.value = DEFAULT_ACCENT;
+  }
+  // Swatches
+  if (accentSwatches) {
+    const btns = Array.from(accentSwatches.querySelectorAll('.accent-swatch'));
+    for (const b of btns) {
+      const c = b.getAttribute('data-color');
+      if (c) b.style.setProperty('--swatch', c);
+      b.addEventListener('click', () => {
+        if (c) window.setAccentColor(c);
+      });
+    }
+  }
+}
+
 // Release Notes / Developer Log (Settings에서 언제든 확인 가능)
 const APP_VERSION = '2';
 const RELEASE_NOTES = [
   {
     version: '2',
-    date: '2026.01.19',
+    date: '2026.01.22',
     items: {
       ko: [
         'PC, 모바일 UI/UX 개편',
@@ -392,7 +474,7 @@ const KNOWN_ISSUES = [
       en: 'Mobile UI is still not fully mobile-friendly; improvements are planned.',
     },
     status: 'planning',
-    since: '2026.01.19'
+    since: '2026.01.22'
   }
 ];
 // Lazy Loading Vars
@@ -429,12 +511,13 @@ const precisionToggle = document.getElementById('precisionToggle');
 const manualEntryToggle = document.getElementById('manualEntryToggle');
 const darkModeToggle = document.getElementById('darkModeToggle');
 const wakeLockToggle = document.getElementById('wakeLockToggle');
+const accentPicker = document.getElementById('accentPicker');
+const accentSwatches = document.getElementById('accentSwatches');
 const holdDurationSlider = document.getElementById('holdDurationSlider');
 const holdDurationValue = document.getElementById('holdDurationValue');
 const inspectionToggle = document.getElementById('inspectionToggle');
 const scrambleDiagram = document.getElementById('scrambleDiagram');
 const eventSelect = document.getElementById('eventSelect');
-const practiceLabel = document.getElementById('practiceLabel');
 // Scramble Loading UI Elements (optional: null guard)
 const scrambleLoadingRow = document.getElementById('scrambleLoadingRow');
 const scrambleLoadingText = document.getElementById('scrambleLoadingText');
@@ -592,13 +675,7 @@ const configs = {
     '333bf': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'blind' },
     '444bf': { moves: ["U","D","L","R","F","B","Uw","Rw","Fw"], len: 44, n: 4, cat: 'blind' },
     '555bf': { moves: ["U","D","L","R","F","B","Uw","Dw","Lw","Rw","Fw","Bw"], len: 60, n: 5, cat: 'blind' },
-    '333mbf': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'blind' },
-    // Practice (treated like events, but scrambles are generated by Practice generator)
-    'prac_f2l': { len: 21, n: 3, cat: 'practice' },
-    'prac_oll': { len: 21, n: 3, cat: 'practice' },
-    'prac_pll': { len: 21, n: 3, cat: 'practice' },
-    'prac_zbls': { len: 21, n: 3, cat: 'practice' },
-    'prac_zbll': { len: 21, n: 3, cat: 'practice' }
+    '333mbf': { moves: ["U","D","L","R","F","B"], len: 21, n: 3, cat: 'blind' }
 };
 const suffixes = ["", "'", "2"];
 const orientations = ["x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"];
@@ -606,387 +683,7 @@ const wideMoves = ["Uw", "Dw", "Lw", "Rw", "Fw", "Bw"];
 function mapEventIdForCubing(eventId){
     // cubing.js / scramble-display uses WCA event IDs. Pyraminx is "pyram".
     if (eventId === 'pyra') return 'pyram';
-    if (typeof eventId === 'string' && eventId.startsWith('prac_')) return '333';
     return eventId;
-}
-
-function isPracticeEvent(eventId){
-    return typeof eventId === 'string' && eventId.startsWith('prac_');
-}
-
-// Practice: simple MVP pools (can be expanded/filtered later)
-// Note: These are intentionally short starter pools; they exist to make Practice usable immediately.
-const PRACTICE_POOLS = {
-    // F2L MVP: just random 3x3 scrambles (true F2L-state scrambles can be added later)
-    prac_f2l: [],
-    // OLL/PLL/ZBLL are placeholders as well (expand pools later)
-    prac_oll: [],
-    prac_pll: [],
-    prac_zbll: [],
-    // ZBLS: right-side base pool. Left is produced by mirroring.
-    prac_zbls_r: [
-        "R U R' U' R' F R2 U' R' U' R U R' F'",
-        "F R U R' U' F' R U R' U' R U R'",
-        "R U2 R2 F R F' U2 R' F R F'",
-        "R U R' U R U2 R' F R U R' U' F'",
-        "R U R' U' R' F R F' R U2 R'"
-    ]
-};
-
-// last generated practice metadata (stored into solve record)
-let currentPracticeMeta = null;
-
-// ------------------------------
-// ZBLS Practice Engine (No case-alg DB)
-//
-// Goal (with green front / white top orientation):
-// - White U-cross solved and aligned (UF/UR/UB/UL)
-// - 3 "F2L-like" slots around U are fully solved (corner + edge)
-// - One slot is NOT solved:
-//   - side 'R': BR/UBR slot (RB + WRB) NOT solved
-//   - side 'L': BL/UBL slot (BO + WOB) NOT solved
-//
-// Implementation: generate a realistic random-state 3x3 scramble, then run a
-// small depth-limited "repair" search to enforce the constraints.
-// This avoids a full solver dependency while keeping output as a normal 3x3
-// scramble string that works with the existing diagram renderer.
-// ------------------------------
-
-function _cloneCubeState() {
-    const st = { n: cubeState?.n || 3 };
-    ['U','D','L','R','F','B'].forEach(f => st[f] = (cubeState?.[f] || []).slice());
-    return st;
-}
-
-function _loadCubeState(st) {
-    cubeState = { n: st.n };
-    ['U','D','L','R','F','B'].forEach(f => cubeState[f] = st[f].slice());
-}
-
-function _applyAlgToCurrent(algStr) {
-    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
-    toks.forEach(t => applyMove(t));
-}
-
-function _isUCrossSolvedAligned() {
-    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-    if (!U || U.length !== 9) return false;
-    const w = COLORS.U;
-    if (U[1] !== w || U[3] !== w || U[5] !== w || U[7] !== w) return false;
-    // aligned with side centers
-    if (F[1] !== COLORS.F) return false; // UF
-    if (R[1] !== COLORS.R) return false; // UR
-    if (B[1] !== COLORS.B) return false; // UB
-    if (L[1] !== COLORS.L) return false; // UL
-    return true;
-}
-
-// Slot checks assume standard face indexing used by our cube simulator.
-function _isSlotSolved(slotKey) {
-    const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-    const ok = (a,b) => a === b;
-    switch (slotKey) {
-        case 'UFR':
-            // corner: U[8]=W, F[2]=G, R[0]=R | edge FR: F[5]=G, R[3]=R
-            return ok(U[8], COLORS.U) && ok(F[2], COLORS.F) && ok(R[0], COLORS.R)
-                && ok(F[5], COLORS.F) && ok(R[3], COLORS.R);
-        case 'UFL':
-            // corner: U[6]=W, F[0]=G, L[2]=O | edge FL: F[3]=G, L[5]=O
-            return ok(U[6], COLORS.U) && ok(F[0], COLORS.F) && ok(L[2], COLORS.L)
-                && ok(F[3], COLORS.F) && ok(L[5], COLORS.L);
-        case 'UBR':
-            // corner: U[2]=W, B[0]=B, R[2]=R | edge BR: B[3]=B, R[5]=R
-            return ok(U[2], COLORS.U) && ok(B[0], COLORS.B) && ok(R[2], COLORS.R)
-                && ok(B[3], COLORS.B) && ok(R[5], COLORS.R);
-        case 'UBL':
-            // corner: U[0]=W, B[2]=B, L[0]=O | edge BL: B[5]=B, L[3]=O
-            return ok(U[0], COLORS.U) && ok(B[2], COLORS.B) && ok(L[0], COLORS.L)
-                && ok(B[5], COLORS.B) && ok(L[3], COLORS.L);
-        default:
-            return false;
-    }
-}
-
-function _isZblsTargetState(side) {
-    if (!_isUCrossSolvedAligned()) return false;
-    if (side === 'R') {
-        // require UFR, UFL, UBL solved; UBR NOT solved
-        return _isSlotSolved('UFR') && _isSlotSolved('UFL') && _isSlotSolved('UBL') && !_isSlotSolved('UBR');
-    }
-    // side === 'L'
-    return _isSlotSolved('UFR') && _isSlotSolved('UFL') && _isSlotSolved('UBR') && !_isSlotSolved('UBL');
-}
-
-function _invertMove(m) {
-    if (!m) return m;
-    if (m.endsWith("2")) return m;
-    if (m.endsWith("'")) return m.slice(0, -1);
-    return m + "'";
-}
-
-function _invertAlg(algStr) {
-    const toks = String(algStr || '').trim().split(/\s+/).filter(Boolean);
-    return toks.reverse().map(_invertMove).join(' ');
-}
-
-function _normalizeAlg(algStr) {
-    // simple whitespace normalize only (avoid aggressive cancellations)
-    return String(algStr || '').trim().replace(/\s+/g, ' ');
-}
-
-// Depth-limited DFS "repair" search for the ZBLS target constraints.
-async function _findRepairAlgForZbls(side, maxDepth) {
-    const moves = ['U','U2',"U'",'R','R2',"R'",'L','L2',"L'",'F','F2',"F'",'B','B2',"B'",'D','D2',"D'"];
-    const axisOf = (mv) => {
-        const f = mv[0];
-        if (f === 'U' || f === 'D') return 0;
-        if (f === 'L' || f === 'R') return 1;
-        if (f === 'F' || f === 'B') return 2;
-        return -1;
-    };
-    const start = _cloneCubeState();
-    const seen = new Set();
-
-    const hashGoalSubset = () => {
-        // hash only relevant stickers for pruning
-        const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-        return [
-            U[0],U[1],U[2],U[3],U[5],U[6],U[7],U[8],
-            F[0],F[1],F[2],F[3],F[5],
-            R[0],R[1],R[2],R[3],R[5],
-            B[0],B[1],B[2],B[3],B[5],
-            L[0],L[1],L[2],L[3],L[5]
-        ].join('|');
-    };
-
-    const dfs = (depth, lastFace, lastAxis, secondLastAxis, path) => {
-        if (_isZblsTargetState(side)) return path.slice();
-        if (depth === 0) return null;
-        const h = hashGoalSubset() + `|d${depth}`;
-        if (seen.has(h)) return null;
-        seen.add(h);
-
-        for (const mv of moves) {
-            const face = mv[0];
-            const ax = axisOf(mv);
-            if (face === lastFace) continue;
-            if (ax === lastAxis && ax === secondLastAxis) continue;
-
-            const before = _cloneCubeState();
-            applyMove(mv);
-            path.push(mv);
-
-            const res = dfs(depth - 1, face, ax, lastAxis, path);
-            if (res) return res;
-
-            path.pop();
-            _loadCubeState(before);
-        }
-        return null;
-    };
-
-    for (let d = 0; d <= maxDepth; d++) {
-        _loadCubeState(start);
-        seen.clear();
-        const res = dfs(d, '', -1, -1, []);
-        if (res) return res.join(' ');
-    }
-    return null;
-}
-
-async function generateZblsPracticeScramble(side) {
-    // IMPORTANT: Do NOT hunt rare states inside random 3x3 scrambles.
-    // We generate the desired state directly from the solved orientation
-    // (green front / white top), while preserving:
-    // - U cross aligned
-    // - 3 "U-layer F2L" slots solved
-    // - 1 target slot NOT solved (R: UBR, L: UBL)
-    // Output is still a normal scramble string, so the existing diagram works.
-
-    const randInt = (a,b) => a + Math.floor(Math.random() * (b - a + 1));
-    const D_MOVES = ['D', 'D2', "D'"];
-    const CORE_MOVES = ['U','U2',"U'",'R','R2',"R'",'B','B2',"B'"];
-    const axisOf = (mv) => {
-        const f = mv[0];
-        if (f === 'U' || f === 'D') return 0;
-        if (f === 'L' || f === 'R') return 1;
-        if (f === 'F' || f === 'B') return 2;
-        return -1;
-    };
-
-    const applyMoves = (arr) => { arr.forEach(m => applyMove(m)); };
-
-    // Small DFS from a "safe" pre-scrambled state (only D moves), to unsolve exactly the target slot
-    // while keeping the other constraints.
-    const findCore = (maxDepth) => {
-        const start = _cloneCubeState();
-        const seen = new Set();
-
-        const hash = () => {
-            // hash only the pieces that matter for our constraints
-            const U = cubeState.U, F = cubeState.F, R = cubeState.R, B = cubeState.B, L = cubeState.L;
-            return [
-                // U face
-                U[0],U[1],U[2],U[3],U[4],U[5],U[6],U[7],U[8],
-                // stickers involved in our slot/cross tests
-                F[0],F[1],F[2],F[3],F[5],
-                R[0],R[1],R[2],R[3],R[5],
-                B[0],B[1],B[2],B[3],B[5],
-                L[0],L[1],L[2],L[3],L[5]
-            ].join('|');
-        };
-
-        const dfs = (depth, lastFace, lastAxis, secondLastAxis, path) => {
-            if (_isZblsTargetState(side)) return path.slice();
-            if (depth === 0) return null;
-            const key = hash() + `|d${depth}`;
-            if (seen.has(key)) return null;
-            seen.add(key);
-
-            for (const mv of CORE_MOVES) {
-                const face = mv[0];
-                const ax = axisOf(mv);
-                if (face === lastFace) continue;
-                if (ax === lastAxis && ax === secondLastAxis) continue;
-                const before = _cloneCubeState();
-                applyMove(mv);
-                path.push(mv);
-                const res = dfs(depth - 1, face, ax, lastAxis, path);
-                if (res) return res;
-                path.pop();
-                _loadCubeState(before);
-            }
-            return null;
-        };
-
-        for (let d = 0; d <= maxDepth; d++) {
-            _loadCubeState(start);
-            seen.clear();
-            const res = dfs(d, '', -1, -1, []);
-            if (res) return res;
-        }
-        return null;
-    };
-
-    // Try multiple independent constructions (fast, no external scramble generator)
-    const MAX_TRIES = 200;
-    for (let t = 0; t < MAX_TRIES; t++) {
-        initCube(3);
-
-        // Add randomness that cannot break our top constraints: D turns.
-        const preLen = randInt(6, 10);
-        const pre = Array.from({length: preLen}, () => D_MOVES[randInt(0,2)]);
-        applyMoves(pre);
-
-        // From this state, search a short sequence that produces the exact ZBLS target.
-        const core = findCore(10);
-        if (!core) continue;
-        applyMoves(core);
-
-        if (!_isZblsTargetState(side)) continue;
-
-        // Pad to a normal scramble length using D moves (doesn't affect our constraints).
-        const desired = randInt(18, 21);
-        const cur = pre.length + core.length;
-        const postLen = Math.max(0, desired - cur);
-        const post = Array.from({length: postLen}, () => D_MOVES[randInt(0,2)]);
-        applyMoves(post);
-        // Safety verify again
-        if (!_isZblsTargetState(side)) continue;
-
-        return _normalizeAlg([...pre, ...core, ...post].join(' '));
-    }
-
-    // If generation failed (should be rare), return null so caller can fall back safely.
-    return null;
-}
-
-function mirror333Alg(algStr){
-    // Safe-ish token mirror: R<->L, F<->B. U/D remain. Also handles wide moves like Rw/Lw, 3Rw/3Lw, etc.
-    // Rotations x/y/z are preserved.
-    const tokens = String(algStr || '').trim().split(/\s+/).filter(Boolean);
-    const mapFace = (tok) => {
-        // capture prefix (like 3), face (R/L/F/B/U/D), optional 'w', suffix (' or 2)
-        const m = tok.match(/^(\d+)?([URFDLB])([wW])?([2']?)$/);
-        if (!m) return tok;
-        const pre = m[1] || '';
-        let face = m[2];
-        const w = m[3] || '';
-        const suf = m[4] || '';
-        if (face === 'R') face = 'L';
-        else if (face === 'L') face = 'R';
-        else if (face === 'F') face = 'B';
-        else if (face === 'B') face = 'F';
-        return `${pre}${face}${w}${suf}`;
-    };
-    return tokens.map(mapFace).join(' ');
-}
-
-async function generatePracticeScramble(eventId){
-    const cubingFn = window.__randomScrambleForEvent;
-    // Default: use a 3x3 random-state scramble if pool is empty.
-    const fallback333 = async () => {
-        if (typeof cubingFn === 'function') {
-            try { return (await cubingFn('333')).toString(); } catch (_) {}
-        }
-        // Ultimate fallback (internal 3x3)
-        const conf = configs['333'];
-        let res = [];
-        let lastAxis = -1;
-        let secondLastAxis = -1;
-        let lastMoveBase = "";
-        const getMoveAxis = (m) => {
-            const c = m[0];
-            if ("UD".includes(c)) return 0;
-            if ("LR".includes(c)) return 1;
-            if ("FB".includes(c)) return 2;
-            return -1;
-        };
-        for (let i = 0; i < conf.len; i++) {
-            let move, axis, base;
-            let valid = false;
-            while (!valid) {
-                move = conf.moves[Math.floor(Math.random() * conf.moves.length)];
-                axis = getMoveAxis(move);
-                base = move[0];
-                if (base === lastMoveBase) { valid = false; continue; }
-                if (axis !== -1 && axis === lastAxis && axis === secondLastAxis) { valid = false; continue; }
-                valid = true;
-            }
-            res.push(move + suffixes[Math.floor(Math.random() * 3)]);
-            secondLastAxis = lastAxis;
-            lastAxis = axis;
-            lastMoveBase = base;
-        }
-        return res.join(' ');
-    };
-
-    // ZBLS: state-constrained scramble (no case-alg pool)
-    if (eventId === 'prac_zbls') {
-        const side = Math.random() < 0.5 ? 'R' : 'L';
-        const scr = await generateZblsPracticeScramble(side);
-        const out = scr || await fallback333();
-        return {
-            scramble: out,
-            meta: { practice: 'ZBLS', side, engine: scr ? 'state-construct' : 'fallback' },
-            displayEvent: '333'
-        };
-    }
-
-    // Others: use pool if present; otherwise fallback to 3x3 scramble.
-    const pool = PRACTICE_POOLS[eventId] || [];
-    const scr = pool.length ? pool[Math.floor(Math.random() * pool.length)] : await fallback333();
-    const nameMap = {
-        prac_f2l: 'F2L',
-        prac_oll: 'OLL',
-        prac_pll: 'PLL',
-        prac_zbll: 'ZBLL'
-    };
-    return {
-        scramble: scr,
-        meta: { practice: nameMap[eventId] || 'Practice' },
-        displayEvent: '333'
-    };
 }
 let cubeState = {};
 const COLORS = { U: '#FFFFFF', D: '#FFD500', L: '#FF8C00', R: '#DC2626', F: '#16A34A', B: '#2563EB' };
@@ -1408,7 +1105,6 @@ function stopTimer(forcedTime = null) {
             event: currentEvent,
             sessionId: getCurrentSessionId(),
             penalty: finalPenalty,
-            meta: currentPracticeMeta,
             date: new Date().toLocaleDateString(currentLang === 'ko' ? 'ko-KR' : 'en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\.$/, "")
         });
         if (finalPenalty === 'DNF') {
@@ -1505,7 +1201,8 @@ function exportData() {
             precision, 
             isAo5Mode, 
             currentEvent, 
-            holdDuration, 
+            holdDuration,
+            accentColor,
             isDarkMode: document.documentElement.classList.contains('dark'), 
             isWakeLockEnabled,
             isInspectionMode 
@@ -1537,6 +1234,7 @@ function importData(event) {
                     isAo5Mode = data.settings.isAo5Mode !== undefined ? data.settings.isAo5Mode : true;
                     currentEvent = data.settings.currentEvent || '333';
                     holdDuration = data.settings.holdDuration || 300;
+                    accentColor = data.settings.accentColor || DEFAULT_ACCENT;
                     isWakeLockEnabled = data.settings.isWakeLockEnabled || false;
                     const isDark = data.settings.isDarkMode || false;
                     isInspectionMode = data.settings.isInspectionMode || false;
@@ -1553,6 +1251,11 @@ function importData(event) {
                         updateHoldDuration(holdDurationSlider.value);
                     }
                     document.documentElement.classList.toggle('dark', isDark);
+                    try {
+                        applyAccentVars(accentColor);
+                        localStorage.setItem('cubeTimerAccent', accentColor);
+                        if (accentPicker && hexToRgb(accentColor)) accentPicker.value = accentColor;
+                    } catch (_) {}
                     if(isWakeLockEnabled) requestWakeLock();
                 }
                 saveData();
@@ -1573,6 +1276,7 @@ function saveData() {
             isAo5Mode, 
             currentEvent, 
             holdDuration,
+            accentColor,
             isDarkMode: document.documentElement.classList.contains('dark'),
             isWakeLockEnabled,
             isInspectionMode
@@ -1592,6 +1296,8 @@ function loadData() {
                 isAo5Mode = data.settings.isAo5Mode !== undefined ? data.settings.isAo5Mode : true;
                 currentEvent = data.settings.currentEvent || '333';
                 holdDuration = data.settings.holdDuration || 300;
+                // Accent color (backward compatible)
+                accentColor = data.settings.accentColor || localStorage.getItem('cubeTimerAccent') || DEFAULT_ACCENT;
                 const isDark = data.settings.isDarkMode || false;
                 isWakeLockEnabled = data.settings.isWakeLockEnabled || false;
                 isInspectionMode = data.settings.isInspectionMode || false;
@@ -1608,6 +1314,9 @@ function loadData() {
                     holdDurationValue.innerText = holdDurationSlider.value + "s";
                 }
                 document.documentElement.classList.toggle('dark', isDark);
+                // Apply accent after toggling root classes
+                try { applyAccentVars(accentColor); } catch (_) {}
+                if (accentPicker && hexToRgb(accentColor)) accentPicker.value = accentColor;
                 if(isWakeLockEnabled) requestWakeLock();
                 const conf = configs[currentEvent];
                 if (eventSelect) eventSelect.value = currentEvent;
@@ -1616,6 +1325,14 @@ function loadData() {
         } catch (e) { console.error("Load failed", e); }
     }
     initSessionIfNeeded(currentEvent);
+
+    // Ensure accent is always applied (even if no v5 data yet)
+    try {
+        const storedAccent = localStorage.getItem('cubeTimerAccent');
+        if (storedAccent && hexToRgb(storedAccent)) accentColor = storedAccent;
+        applyAccentVars(accentColor);
+        if (accentPicker && hexToRgb(accentColor)) accentPicker.value = accentColor;
+    } catch (_) {}
     
     if (!isBtConnected) {
         statusHint.innerText = isInspectionMode ? "Start Inspection" : "Hold to Ready";
@@ -1842,8 +1559,6 @@ function setScrambleLoadingState(isLoading, message = 'Loading scramble…', sho
         lockTimerLayout();
         // 종목 변경/재생성 시 이전 내용 즉시 숨김
         if (scrambleEl) scrambleEl.innerText = '';
-        if (practiceLabel) practiceLabel.classList.add('hidden');
-        currentPracticeMeta = null;
         clearScrambleDiagram();
         // Prevent blind-only message from sticking across events
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
@@ -1891,43 +1606,9 @@ async function generateScramble() {
     lastScrambleTrigger = () => generateScramble();
     const reqId = ++scrambleReqId;
     setScrambleLoadingState(true, 'Loading scramble…', false);
-
-    // Practice events: generate from practice generator (treated as "events" in the UI)
-    if (isPracticeEvent(currentEvent)) {
-        try {
-            const out = await generatePracticeScramble(currentEvent);
-            if (reqId !== scrambleReqId) return;
-            currentScramble = out.scramble;
-            currentPracticeMeta = out.meta || null;
-            if (scrambleEl) scrambleEl.innerText = currentScramble;
-            if (practiceLabel) {
-                const labelBase = (currentPracticeMeta && currentPracticeMeta.practice) ? String(currentPracticeMeta.practice) : 'Practice';
-                const label = (currentPracticeMeta && currentPracticeMeta.side)
-                    ? `${labelBase} (${currentPracticeMeta.side})`
-                    : labelBase;
-                practiceLabel.textContent = label;
-                practiceLabel.classList.remove('hidden');
-            }
-            setScrambleLoadingState(false);
-            updateScrambleDiagram();
-            resetPenalty();
-            if (activeTool === 'graph') renderHistoryGraph();
-            scheduleLayout('scramble-ready');
-            return;
-        } catch (e) {
-            if (reqId !== scrambleReqId) return;
-            console.warn('[CubeTimer] practice scramble failed. Falling back to 3x3.', e);
-            // fall through to default generator
-        }
-    }
-
-    // Non-practice: hide practice label
-    currentPracticeMeta = null;
-    if (practiceLabel) practiceLabel.classList.add('hidden');
-
     // Prefer cubing.js (official random-state scrambles) when available.
     const cubingFn = window.__randomScrambleForEvent;
-    if (typeof cubingFn === 'function' && currentEvent !== '666') {
+    if (typeof cubingFn === 'function' && currentEvent !== '666' && currentEvent !== 'clock') {
         try {
             const alg = await cubingFn(mapEventIdForCubing(currentEvent));
             if (reqId !== scrambleReqId) return; // stale
@@ -1959,20 +1640,30 @@ async function generateScramble() {
         }
         currentScramble = res.join("\n");
     } else if (currentEvent === 'clock') {
-        const dials = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
-        dials.forEach(d => {
-            const v = Math.floor(Math.random() * 12) - 5;
-            res.push(`${d}${v >= 0 ? '+' : ''}${v}`);
+        // WCA-style Clock scramble formatting:
+        // - First two tokens should be UR... DR...
+        // - Use dial format like UR3+ / DR4- (number then sign)
+        // - Include y2 and end with an ALL... token (no trailing pin-pattern tokens)
+        const dialOrderFront = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
+        const dialOrderBack  = ["U", "R", "D", "L", "ALL"];
+
+        const fmt = (dial, v) => {
+            const abs = Math.abs(v);
+            return `${dial}${abs}${v >= 0 ? '+' : '-'}`;
+        };
+
+        dialOrderFront.forEach((dial) => {
+            const v = Math.floor(Math.random() * 12) - 5; // -5..+6
+            res.push(fmt(dial, v));
         });
+
         res.push("y2");
-        const dials2 = ["U", "R", "D", "L", "ALL"];
-        dials2.forEach(d => {
-            const v = Math.floor(Math.random() * 12) - 5;
-            res.push(`${d}${v >= 0 ? '+' : ''}${v}`);
+
+        dialOrderBack.forEach((dial) => {
+            const v = Math.floor(Math.random() * 12) - 5; // -5..+6
+            res.push(fmt(dial, v));
         });
-        let pins = [];
-        ["UR", "DR", "DL", "UL"].forEach(p => { if (Math.random() < 0.5) pins.push(p); });
-        if (pins.length) res.push(pins.join(" "));
+
         currentScramble = res.join(" ");
     } else if (currentEvent === 'sq1') {
         // NOTE: Internal SQ1 generator is kept only as a fallback.
@@ -2081,13 +1772,10 @@ function updateScrambleDiagram() {
     // Message should only be shown in Scramble Image tool.
     if (activeTool !== 'scramble') {
         if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
-        // Ensure no duplicate renders keep showing when tool is not active
-        if (visualizerCanvas) visualizerCanvas.classList.add('hidden');
         return;
     }
     if (isBlind) {
         scrambleDiagram.classList.add('hidden');
-        if (visualizerCanvas) visualizerCanvas.classList.add('hidden');
         if (noVisualizerMsg) {
             noVisualizerMsg.classList.remove('hidden');
             noVisualizerMsg.innerText = (currentLang === 'ko')
@@ -2097,13 +1785,6 @@ function updateScrambleDiagram() {
         return;
     }
     if (noVisualizerMsg) noVisualizerMsg.classList.add('hidden');
-    if (visualizerCanvas) visualizerCanvas.classList.add('hidden');
-
-    // Some versions of scramble-display render into light DOM and can accumulate
-    // multiple SVGs when attributes update quickly (or when CSS forces reflow).
-    // Clearing children before setting attributes prevents duplicate diagrams.
-    try { scrambleDiagram.replaceChildren(); } catch (e) { scrambleDiagram.innerHTML = ''; }
-
     scrambleDiagram.classList.remove('hidden');
     // scramble-display auto-updates when attributes change.
     scrambleDiagram.setAttribute('event', mapEventIdForCubing(currentEvent));
@@ -2729,6 +2410,7 @@ document.getElementById('clearHistoryBtn').onclick = () => {
   };
 };
 loadData();
+initAccentUI();
 applyLanguageToUI();
 changeEvent(currentEvent);
 // Check for updates on load
