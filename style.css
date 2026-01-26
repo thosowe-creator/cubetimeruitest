@@ -680,3 +680,113 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
 #themeAccentPreview,#themeBgPreview,#themePanelPreview,#themeScramblePreview,#themeTextPreview{
   flex: 0 0 auto;
 }
+
+
+/* ------------------------------
+   Light-mode Theme (RGB sliders)
+   - Dark mode is intentionally untouched.
+---------------------------------*/
+:root:not(.dark) {
+  --ct-bg-app: rgb(248, 250, 252);
+  --ct-bg-panel: rgb(255, 255, 255);
+  --ct-border: rgb(226, 232, 240);
+
+  --ct-text-primary: rgb(15, 23, 42);
+  --ct-text-secondary: rgb(71, 85, 105);
+  --ct-text-muted: rgb(148, 163, 184);
+
+  --ct-bg-scramble: rgb(241, 245, 249);
+  --ct-border-scramble: rgb(226, 232, 240);
+  --ct-text-scramble: rgb(30, 41, 59);
+
+  --ct-warning: rgb(234, 179, 8);
+  --ct-danger: rgb(220, 38, 38);
+
+  /* Derived surface for subtle inner blocks */
+  --ct-bg-panel-sub: color-mix(in srgb, var(--ct-bg-panel) 88%, #ffffff);
+}
+
+/* Global overrides (light mode only) */
+:root:not(.dark) body {
+  background: var(--ct-bg-app) !important;
+  color: var(--ct-text-primary) !important;
+}
+:root:not(.dark) header {
+  background: var(--ct-bg-panel) !important;
+  border-color: var(--ct-border) !important;
+}
+:root:not(.dark) header h1,
+:root:not(.dark) #settingsTitle,
+:root:not(.dark) .text-slate-700 {
+  color: var(--ct-text-primary) !important;
+}
+:root:not(.dark) .text-slate-600 { color: var(--ct-text-secondary) !important; }
+:root:not(.dark) .text-slate-500,
+:root:not(.dark) .text-slate-400 { color: var(--ct-text-muted) !important; }
+
+/* Panels / cards / modals */
+:root:not(.dark) .bg-white { background-color: var(--ct-bg-panel) !important; }
+:root:not(.dark) .bg-slate-50 { background-color: var(--ct-bg-panel-sub) !important; }
+:root:not(.dark) .border-slate-200,
+:root:not(.dark) .border-slate-100 { border-color: var(--ct-border) !important; }
+
+/* Scramble box */
+:root:not(.dark) #scrambleBox {
+  background-color: var(--ct-bg-scramble) !important;
+  border-color: var(--ct-border-scramble) !important;
+}
+:root:not(.dark) #scramble { color: var(--ct-text-scramble) !important; }
+:root:not(.dark) #scrambleDiagram,
+:root:not(.dark) #scrambleDiagramSkeleton {
+  background-color: color-mix(in srgb, var(--ct-bg-scramble) 92%, #ffffff) !important;
+  border-color: var(--ct-border-scramble) !important;
+}
+
+/* Status colors (used in a few places) */
+:root:not(.dark) .penalty-btn.active-plus2 { background-color: color-mix(in srgb, var(--ct-warning) 18%, #ffffff) !important; border-color: color-mix(in srgb, var(--ct-warning) 35%, #ffffff) !important; color: color-mix(in srgb, var(--ct-warning) 80%, #000000) !important; }
+:root:not(.dark) .penalty-btn.active-dnf { background-color: color-mix(in srgb, var(--ct-danger) 16%, #ffffff) !important; border-color: color-mix(in srgb, var(--ct-danger) 30%, #ffffff) !important; color: color-mix(in srgb, var(--ct-danger) 80%, #000000) !important; }
+
+/* Theme editor UI */
+.theme-section {
+  padding: 0.75rem;
+  border-radius: 1rem;
+  background: var(--ct-bg-panel-sub);
+  border: 1px solid var(--ct-border);
+}
+.dark .theme-section { background: #1e293b; border-color: #334155; }
+
+.theme-row {
+  padding: 0.75rem;
+  border-radius: 0.9rem;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--ct-border);
+  margin-top: 0.5rem;
+}
+.dark .theme-row { background: #0f172a; border-color: #334155; }
+
+.theme-row-top { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.theme-preview { width: 22px; height: 22px; border-radius: 7px; border: 1px solid var(--ct-border); box-shadow: 0 1px 2px rgba(0,0,0,0.06); flex: 0 0 auto; }
+.dark .theme-preview { border-color: #334155; }
+
+.theme-label { font-size: 0.75rem; font-weight: 800; color: var(--ct-text-secondary); }
+.dark .theme-label { color: #cbd5e1; }
+.theme-value { font-size: 0.65rem; font-weight: 800; color: var(--ct-text-muted); margin-top: 0.1rem; }
+.dark .theme-value { color: #94a3b8; }
+
+.theme-sliders { display: grid; gap: 0.45rem; }
+.theme-slider-line { display: flex; align-items: center; gap: 0.5rem; }
+.theme-slider-line span { width: 14px; font-size: 0.7rem; font-weight: 900; color: var(--ct-text-muted); }
+.dark .theme-slider-line span { color: #94a3b8; }
+
+.theme-reset-btn {
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.75rem;
+  background: rgba(255,255,255,0.65);
+  border: 1px solid var(--ct-border);
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: var(--ct-text-secondary);
+  transition: transform 0.1s, background 0.15s;
+}
+.theme-reset-btn:active { transform: scale(0.97); }
+.dark .theme-reset-btn { background: #0f172a; border-color: #334155; color: #cbd5e1; }

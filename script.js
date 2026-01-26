@@ -793,6 +793,10 @@ function toggleDarkMode(checkbox) {
     const isDark = checkbox.checked;
     document.documentElement.classList.toggle('dark', isDark);
     saveData();
+    // Re-apply light theme vars when returning to light mode
+    if (!isDark) {
+        try { applyThemeLightToDocument(); } catch (_) {}
+    }
     if(activeTool === 'graph') renderHistoryGraph();
 }
 // --- Wake Lock ---
@@ -2244,161 +2248,219 @@ interactiveArea.addEventListener('touchend', handleEnd, { passive: false });
 // [UPDATED] Toggle Settings: Acts as open/close toggle
 
 /* =======================
-   Light Theme Customizer (RGB sliders)
-   - Does NOT change dark mode styles. (CSS applies only when :root:not(.dark))
+   Light Theme (RGB) + Theme "tab" inside Settings
+   - Dark mode is intentionally untouched.
+   - Applies only to light mode via CSS :root:not(.dark) overrides.
    ======================= */
 
-const THEME_STORAGE_KEY = 'ct_theme_light_v1';
+const THEME_LIGHT_STORAGE_KEY = 'ct_theme_light_v2';
 
-const DEFAULT_LIGHT_THEME = {
-  accent: { r: 37, g: 99, b: 235 },     // Tailwind blue-600
-  bg:     { r: 248, g: 250, b: 252 },   // slate-50
-  panel:  { r: 255, g: 255, b: 255 },   // white
-  scramble:{ r: 255, g: 255, b: 255 },  // default scramble box (panel-like)
-  text:   { r: 30, g: 41, b: 59 },      // slate-800
-  border: { r: 226, g: 232, b: 240 }    // slate-200
+/**
+ * Keys map to CSS vars in style.css:
+ *  --ct-bg-app, --ct-bg-panel, --ct-border
+ *  --ct-text-primary, --ct-text-secondary, --ct-text-muted
+ *  --ct-bg-scramble, --ct-border-scramble, --ct-text-scramble
+ *  --ct-warning, --ct-danger
+ */
+const DEFAULT_LIGHT_THEME_V2 = {
+  'bg-app':         [248, 250, 252],
+  'bg-panel':       [255, 255, 255],
+  'border':         [226, 232, 240],
+
+  'text-primary':   [15, 23, 42],
+  'text-secondary': [71, 85, 105],
+  'text-muted':     [148, 163, 184],
+
+  'bg-scramble':     [241, 245, 249],
+  'border-scramble': [226, 232, 240],
+  'text-scramble':   [30, 41, 59],
+
+  'warning':        [234, 179, 8],
+  'danger':         [220, 38, 38],
 };
 
-function clamp255(n){ n = Number(n); return Number.isFinite(n) ? Math.max(0, Math.min(255, Math.round(n))) : 0; }
-function themeToCssRgb(themePart){ return `${clamp255(themePart.r)} ${clamp255(themePart.g)} ${clamp255(themePart.b)}`; }
-
-function applyLightThemeVars(theme){
-  const root = document.documentElement;
-  try {
-    root.style.setProperty('--ct-accent-rgb', themeToCssRgb(theme.accent));
-    root.style.setProperty('--ct-bg-rgb', themeToCssRgb(theme.bg));
-    root.style.setProperty('--ct-panel-rgb', themeToCssRgb(theme.panel));
-    root.style.setProperty('--ct-scramble-rgb', themeToCssRgb(theme.scramble));
-    root.style.setProperty('--ct-text-rgb', themeToCssRgb(theme.text));
-    root.style.setProperty('--ct-border-rgb', themeToCssRgb(theme.border));
-  } catch (_) {}
+function clamp255(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(255, Math.round(n)));
 }
 
-function loadLightTheme(){
-  try {
-    const raw = localStorage.getItem(THEME_STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_LIGHT_THEME);
-    const obj = JSON.parse(raw);
-    const pick = (k, fallback) => ({
-      r: clamp255(obj?.[k]?.r ?? fallback.r),
-      g: clamp255(obj?.[k]?.g ?? fallback.g),
-      b: clamp255(obj?.[k]?.b ?? fallback.b),
-    });
-    return {
-      accent: pick('accent', DEFAULT_LIGHT_THEME.accent),
-      bg: pick('bg', DEFAULT_LIGHT_THEME.bg),
-      panel: pick('panel', DEFAULT_LIGHT_THEME.panel),
-      scramble: pick('scramble', DEFAULT_LIGHT_THEME.scramble),
-      text: pick('text', DEFAULT_LIGHT_THEME.text),
-      border: pick('border', DEFAULT_LIGHT_THEME.border),
-    };
-  } catch (_) {
-    return structuredClone(DEFAULT_LIGHT_THEME);
+function deepCopyTheme(obj){
+  const out = {};
+  for (const k in obj) out[k] = [...obj[k]];
+  return out;
+}
+
+function loadThemeLightV2(){
+  try{
+    const raw = localStorage.getItem(THEME_LIGHT_STORAGE_KEY);
+    if (!raw) return deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
+    const parsed = JSON.parse(raw);
+    const theme = deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
+    for (const k in theme){
+      const arr = parsed?.[k];
+      if (Array.isArray(arr) && arr.length === 3){
+        theme[k] = [clamp255(arr[0]), clamp255(arr[1]), clamp255(arr[2])];
+      }
+    }
+    return theme;
+  } catch(_){
+    return deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
   }
 }
 
-function saveLightTheme(theme){
-  try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(theme)); } catch (_) {}
+function saveThemeLightV2(theme){
+  try{ localStorage.setItem(THEME_LIGHT_STORAGE_KEY, JSON.stringify(theme)); } catch(_){}
 }
 
-let lightTheme = loadLightTheme();
-applyLightThemeVars(lightTheme);
+let themeLight = loadThemeLightV2();
 
-function setSliderTriple(prefix, rgb){
-  const r = document.getElementById(prefix+'R');
-  const g = document.getElementById(prefix+'G');
-  const b = document.getElementById(prefix+'B');
-  const rv = document.getElementById(prefix+'RVal');
-  const gv = document.getElementById(prefix+'GVal');
-  const bv = document.getElementById(prefix+'BVal');
-  if (r) r.value = String(rgb.r);
-  if (g) g.value = String(rgb.g);
-  if (b) b.value = String(rgb.b);
-  if (rv) rv.textContent = String(rgb.r);
-  if (gv) gv.textContent = String(rgb.g);
-  if (bv) bv.textContent = String(rgb.b);
+function applyThemeLightToDocument(){
+  // Dark mode: never touch visuals
+  if (document.documentElement.classList.contains('dark')) return;
+
+  const root = document.documentElement;
+  const set = (varName, rgbArr) => {
+    const [r,g,b] = rgbArr;
+    root.style.setProperty(varName, `rgb(${r}, ${g}, ${b})`);
+  };
+
+  set('--ct-bg-app', themeLight['bg-app']);
+  set('--ct-bg-panel', themeLight['bg-panel']);
+  set('--ct-border', themeLight['border']);
+
+  set('--ct-text-primary', themeLight['text-primary']);
+  set('--ct-text-secondary', themeLight['text-secondary']);
+  set('--ct-text-muted', themeLight['text-muted']);
+
+  set('--ct-bg-scramble', themeLight['bg-scramble']);
+  set('--ct-border-scramble', themeLight['border-scramble']);
+  set('--ct-text-scramble', themeLight['text-scramble']);
+
+  set('--ct-warning', themeLight['warning']);
+  set('--ct-danger', themeLight['danger']);
 }
 
-function setPreview(id, rgb){
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.style.background = `rgb(${rgb.r} ${rgb.g} ${rgb.b})`;
+function rgbString(arr){
+  const [r,g,b] = arr;
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function updateThemeRowUI(key){
+  try{
+    const pv = document.getElementById(`preview-${key}`);
+    const val = document.getElementById(`value-${key}`);
+    if (pv) pv.style.backgroundColor = rgbString(themeLight[key]);
+    if (val) val.textContent = rgbString(themeLight[key]);
+  } catch(_){}
 }
 
 function syncThemeUIFromState(){
-  // Sliders
-  setSliderTriple('themeAccent', lightTheme.accent);
-  setSliderTriple('themeBg', lightTheme.bg);
-  setSliderTriple('themePanel', lightTheme.panel);
-  setSliderTriple('themeScramble', lightTheme.scramble);
-  setSliderTriple('themeText', lightTheme.text);
+  // Set slider values + previews for all rows currently in DOM
+  try{
+    const inputs = document.querySelectorAll('#settingsThemeView input[type="range"][data-key][data-ch]');
+    inputs.forEach(inp => {
+      const key = inp.getAttribute('data-key');
+      const ch = inp.getAttribute('data-ch');
+      const idx = ch === 'r' ? 0 : ch === 'g' ? 1 : 2;
+      if (!themeLight[key]) return;
+      inp.value = String(themeLight[key][idx]);
+    });
 
-  // Previews
-  setPreview('themeAccentPreview', lightTheme.accent);
-  setPreview('themeBgPreview', lightTheme.bg);
-  setPreview('themePanelPreview', lightTheme.panel);
-  setPreview('themeScramblePreview', lightTheme.scramble);
-  setPreview('themeTextPreview', lightTheme.text);
+    Object.keys(DEFAULT_LIGHT_THEME_V2).forEach(updateThemeRowUI);
+  } catch(_){}
 }
 
-// Called by oninput from sliders (global)
-window.updateThemeFromSliders = (part) => {
-  const map = {
-    accent: { key: 'accent', prefix: 'themeAccent' },
-    bg: { key: 'bg', prefix: 'themeBg' },
-    panel: { key: 'panel', prefix: 'themePanel' },
-    scramble: { key: 'scramble', prefix: 'themeScramble' },
-    text: { key: 'text', prefix: 'themeText' },
-  };
-  const meta = map[part];
-  if (!meta) return;
-  const r = clamp255(document.getElementById(meta.prefix+'R')?.value);
-  const g = clamp255(document.getElementById(meta.prefix+'G')?.value);
-  const b = clamp255(document.getElementById(meta.prefix+'B')?.value);
+function onThemeSliderInput(e){
+  const el = e?.target;
+  if (!el) return;
+  const key = el.getAttribute('data-key');
+  const ch = el.getAttribute('data-ch');
+  if (!key || !ch || !themeLight[key]) return;
 
-  lightTheme[meta.key] = { r, g, b };
+  const idx = ch === 'r' ? 0 : ch === 'g' ? 1 : 2;
+  themeLight[key][idx] = clamp255(el.value);
 
-  // Keep border sensible: follow panel slightly by default (only if user hasn't custom-set it)
-  // For now, tie border to panel a bit darker unless user changed it previously.
-  if (meta.key === 'panel') {
-    lightTheme.border = {
-      r: clamp255(r - 29),
-      g: clamp255(g - 23),
-      b: clamp255(b - 15),
-    };
-  }
+  updateThemeRowUI(key);
+  saveThemeLightV2(themeLight);
+  applyThemeLightToDocument();
+}
 
-  // Update UI labels
-  const rv = document.getElementById(meta.prefix+'RVal'); if (rv) rv.textContent = String(r);
-  const gv = document.getElementById(meta.prefix+'GVal'); if (gv) gv.textContent = String(g);
-  const bv = document.getElementById(meta.prefix+'BVal'); if (bv) bv.textContent = String(b);
-  setPreview(meta.prefix+'Preview', { r, g, b });
-
-  applyLightThemeVars(lightTheme);
-  saveLightTheme(lightTheme);
-};
-
-window.resetThemePart = (part) => {
-  if (!DEFAULT_LIGHT_THEME[part]) return;
-  lightTheme[part] = structuredClone(DEFAULT_LIGHT_THEME[part]);
-  if (part === 'panel') {
-    lightTheme.border = structuredClone(DEFAULT_LIGHT_THEME.border);
-  }
-  applyLightThemeVars(lightTheme);
-  saveLightTheme(lightTheme);
+// Exposed helpers for buttons in HTML
+window.resetThemeColorLight = (key) => {
+  if (!DEFAULT_LIGHT_THEME_V2[key]) return;
+  themeLight[key] = [...DEFAULT_LIGHT_THEME_V2[key]];
+  saveThemeLightV2(themeLight);
+  applyThemeLightToDocument();
   syncThemeUIFromState();
 };
 
-window.resetThemeAll = () => {
-  lightTheme = structuredClone(DEFAULT_LIGHT_THEME);
-  applyLightThemeVars(lightTheme);
-  saveLightTheme(lightTheme);
+window.resetThemeCategoryLight = (keys) => {
+  if (!Array.isArray(keys)) return;
+  for (const k of keys){
+    if (DEFAULT_LIGHT_THEME_V2[k]) themeLight[k] = [...DEFAULT_LIGHT_THEME_V2[k]];
+  }
+  saveThemeLightV2(themeLight);
+  applyThemeLightToDocument();
   syncThemeUIFromState();
 };
 
-// Ensure sliders/previews reflect stored theme when settings opens
+window.resetAllThemeLight = () => {
+  themeLight = deepCopyTheme(DEFAULT_LIGHT_THEME_V2);
+  saveThemeLightV2(themeLight);
+  applyThemeLightToDocument();
+  syncThemeUIFromState();
+};
+
+window.openThemeSettings = () => {
+  try{
+    const main = document.getElementById('settingsMainView');
+    const theme = document.getElementById('settingsThemeView');
+    const backBtn = document.getElementById('themeBackBtn');
+    const title = document.getElementById('settingsTitle');
+    const resetAllBtn = document.getElementById('themeResetAllBtn');
+
+    if (main) main.classList.add('hidden');
+    if (theme) theme.classList.remove('hidden');
+    if (backBtn) backBtn.classList.remove('hidden');
+    if (resetAllBtn) resetAllBtn.classList.remove('hidden');
+    if (title) title.textContent = 'Theme';
+
+    syncThemeUIFromState();
+
+    // Attach listeners once
+    if (!window.__themeSliderBound){
+      window.__themeSliderBound = true;
+      document.getElementById('settingsThemeView')?.addEventListener('input', (ev) => {
+        if (ev.target && ev.target.matches('input[type="range"][data-key][data-ch]')) onThemeSliderInput(ev);
+      });
+    }
+  } catch(_){}
+};
+
+window.closeThemeSettings = () => {
+  try{
+    const main = document.getElementById('settingsMainView');
+    const theme = document.getElementById('settingsThemeView');
+    const backBtn = document.getElementById('themeBackBtn');
+    const title = document.getElementById('settingsTitle');
+    const resetAllBtn = document.getElementById('themeResetAllBtn');
+
+    if (theme) theme.classList.add('hidden');
+    if (main) main.classList.remove('hidden');
+    if (backBtn) backBtn.classList.add('hidden');
+    if (resetAllBtn) resetAllBtn.classList.add('hidden');
+    if (title) title.textContent = 'Settings';
+  } catch(_){}
+};
+
+// Apply on load (light mode only). If currently dark, it will apply when switching back to light.
+applyThemeLightToDocument();
+
+// Keep UI synced when settings opens
 function ensureThemeUIReady(){
   try { syncThemeUIFromState(); } catch (_) {}
+  try { window.closeThemeSettings(); } catch (_) {}
 }
 
 window.openSettings = () => { 

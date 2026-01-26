@@ -169,8 +169,20 @@
     <!-- Settings Modal -->
     <div id="settingsOverlay" class="modal-overlay" onclick="handleOutsideSettingsClick(event)">
         <div class="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl p-4 sm:p-6 transform transition-all scale-95 opacity-0 duration-200" id="settingsModal" onclick="event.stopPropagation()">
-            <h3 class="font-bold text-slate-700 dark:text-white text-lg mb-3">Settings</h3>
+            <div id="settingsHeader" class="flex items-center justify-between mb-3">
+  <div class="flex items-center gap-2">
+    <button id="themeBackBtn" onclick="closeThemeSettings()" class="hidden w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center active:scale-95 transition-all" aria-label="Back">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h3 id="settingsTitle" class="font-bold text-slate-700 dark:text-white text-lg">Settings</h3>
+  </div>
+  <button id="themeResetAllBtn" onclick="resetAllThemeLight()" class="hidden px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-black text-slate-600 dark:text-slate-300 active:scale-95 transition-all">
+    Reset Theme
+  </button>
+</div>
             <div id="settingsScroll" class="settings-scroll space-y-4 custom-scroll pr-1">
+                <div id="settingsMainView" class="space-y-4">
+
                 <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl">
                     <div><p class="text-xs font-bold text-slate-600 dark:text-slate-300">Dark Mode</p></div>
                     <label class="switch"><input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this)"><span class="slider"></span></label>
@@ -182,6 +194,19 @@
                         <option value="en">English</option>
                     </select>
                 </div>
+<button type="button" onclick="openThemeSettings()" class="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+            <div class="w-4 h-4 rounded" style="background: linear-gradient(135deg, #3b82f6, #a855f7);"></div>
+        </div>
+        <div class="text-left">
+            <p class="text-xs font-bold text-slate-600 dark:text-slate-300">Theme</p>
+            <p class="text-[10px] font-bold text-slate-400">Light mode colors (RGB)</p>
+        </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M9 18l6-6-6-6"/></svg>
+</button>
+
 
 <!-- Theme (Light mode only) -->
 <div class="pt-2">
@@ -321,7 +346,224 @@
                         <button onclick="openUpdateLog(false)" class="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl">Update Log</button>
                         <button onclick="openKnownIssues()" class="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl">Developer Log</button>
                     </div>
+                </div></div>
+<div id="settingsThemeView" class="hidden space-y-4">
+    <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Light Mode Theme</p>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">
+            다크모드는 그대로 유지되고, 라이트 모드에서만 적용돼.
+        </p>
+    </div>
+
+    <!-- Background -->
+    <div class="theme-section">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Background</p>
+            <button class="theme-reset-btn" onclick="resetThemeColorLight('bg-app')">Default</button>
+        </div>
+        <div class="theme-row" data-key="bg-app">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-bg-app"></div>
+                <div class="flex-1">
+                    <p class="theme-label">App Background</p>
+                    <p class="theme-value" id="value-bg-app">rgb(0,0,0)</p>
                 </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="bg-app" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="bg-app" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="bg-app" data-ch="b"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Surface -->
+    <div class="theme-section">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Surface</p>
+            <button class="theme-reset-btn" onclick="resetThemeCategoryLight(['bg-panel','border'])">Default</button>
+        </div>
+
+        <div class="theme-row" data-key="bg-panel">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-bg-panel"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Panel Background</p>
+                    <p class="theme-value" id="value-bg-panel">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="bg-panel" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="bg-panel" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="bg-panel" data-ch="b"></div>
+            </div>
+        </div>
+
+        <div class="theme-row" data-key="border">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-border"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Border</p>
+                    <p class="theme-value" id="value-border">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="border" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="border" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="border" data-ch="b"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text -->
+    <div class="theme-section">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Text</p>
+            <button class="theme-reset-btn" onclick="resetThemeCategoryLight(['text-primary','text-secondary','text-muted'])">Default</button>
+        </div>
+
+        <div class="theme-row" data-key="text-primary">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-text-primary"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Primary</p>
+                    <p class="theme-value" id="value-text-primary">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="text-primary" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="text-primary" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="text-primary" data-ch="b"></div>
+            </div>
+        </div>
+
+        <div class="theme-row" data-key="text-secondary">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-text-secondary"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Secondary</p>
+                    <p class="theme-value" id="value-text-secondary">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="text-secondary" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="text-secondary" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="text-secondary" data-ch="b"></div>
+            </div>
+        </div>
+
+        <div class="theme-row" data-key="text-muted">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-text-muted"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Muted</p>
+                    <p class="theme-value" id="value-text-muted">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="text-muted" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="text-muted" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="text-muted" data-ch="b"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scramble Box -->
+    <div class="theme-section">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Scramble Box</p>
+            <button class="theme-reset-btn" onclick="resetThemeCategoryLight(['bg-scramble','border-scramble','text-scramble'])">Default</button>
+        </div>
+
+        <div class="theme-row" data-key="bg-scramble">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-bg-scramble"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Background</p>
+                    <p class="theme-value" id="value-bg-scramble">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="bg-scramble" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="bg-scramble" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="bg-scramble" data-ch="b"></div>
+            </div>
+        </div>
+
+        <div class="theme-row" data-key="border-scramble">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-border-scramble"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Border</p>
+                    <p class="theme-value" id="value-border-scramble">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="border-scramble" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="border-scramble" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="border-scramble" data-ch="b"></div>
+            </div>
+        </div>
+
+        <div class="theme-row" data-key="text-scramble">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-text-scramble"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Text</p>
+                    <p class="theme-value" id="value-text-scramble">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="text-scramble" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="text-scramble" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="text-scramble" data-ch="b"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div class="theme-section">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Status</p>
+            <button class="theme-reset-btn" onclick="resetThemeCategoryLight(['warning','danger'])">Default</button>
+        </div>
+
+        <div class="theme-row" data-key="warning">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-warning"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Warning (+2 / Inspection)</p>
+                    <p class="theme-value" id="value-warning">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="warning" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="warning" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="warning" data-ch="b"></div>
+            </div>
+        </div>
+
+        <div class="theme-row" data-key="danger">
+            <div class="theme-row-top">
+                <div class="theme-preview" id="preview-danger"></div>
+                <div class="flex-1">
+                    <p class="theme-label">Danger (DNF / Error)</p>
+                    <p class="theme-value" id="value-danger">rgb(0,0,0)</p>
+                </div>
+            </div>
+            <div class="theme-sliders">
+                <div class="theme-slider-line"><span>R</span><input type="range" min="0" max="255" step="1" data-key="danger" data-ch="r"></div>
+                <div class="theme-slider-line"><span>G</span><input type="range" min="0" max="255" step="1" data-key="danger" data-ch="g"></div>
+                <div class="theme-slider-line"><span>B</span><input type="range" min="0" max="255" step="1" data-key="danger" data-ch="b"></div>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="resetAllThemeLight()" class="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-xl text-sm active:scale-95 transition-all">
+        Reset Theme (All)
+    </button>
+</div>
+
             </div>
 
             <!-- Sticky footer so Save & Close is always reachable on mobile -->
