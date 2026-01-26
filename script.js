@@ -2045,6 +2045,83 @@ function _cleanAlg(s) {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// --- Practice alg helpers (string-level, no cube simulation) ---
+// We only use these for practice events (F2L/OLL/PLL/ZBLS/ZBLL) so we don't touch normal scramble logic.
+function _invertMoveToken(tok) {
+  const t = String(tok || '').trim();
+  if (!t) return '';
+  // Move token: base + optional suffix (2 or ')
+  // Examples: R, R', R2, Rw, Rw', u2, M', x, y2
+  const m = t.match(/^([A-Za-z]+)(2|')?$/);
+  if (!m) return t; // keep as-is
+  const base = m[1];
+  const suf = m[2] || '';
+  if (suf === '2') return base + '2';
+  if (suf === "'") return base;
+  return base + "'";
+}
+function _invertAlgString(algText) {
+  const parts = _cleanAlg(algText).split(' ').filter(Boolean);
+  const inv = parts.reverse().map(_invertMoveToken);
+  return _cleanAlg(inv.join(' '));
+}
+
+// Convert practice scramble tokens to a cubing.js-friendly form for scramble-display.
+// - lowercase u/r/l/f/b/d => Uw/Rw/Lw/Fw/Bw/Dw
+// - slice moves M/E/S => wide + face combos (no slice tokens needed)
+// This conversion is ONLY for the scramble image (diagram). Text display stays original.
+function _practiceAlgForDiagram(algText) {
+  const parts = _cleanAlg(algText).split(' ').filter(Boolean);
+  const out = [];
+  const invSuffix = (s) => (s === "'") ? '' : (s === '2' ? '2' : "'");
+  const parse = (tok) => {
+    const m = tok.match(/^([A-Za-z]+)(2|')?$/);
+    if (!m) return { base: tok, suf: '' };
+    return { base: m[1], suf: m[2] || '' };
+  };
+  const wideMap = { u: 'Uw', d: 'Dw', l: 'Lw', r: 'Rw', f: 'Fw', b: 'Bw' };
+
+  for (const tok of parts) {
+    const { base, suf } = parse(tok);
+    // Lowercase single-face = wide move
+    if (base.length === 1 && wideMap[base]) {
+      out.push(wideMap[base] + suf);
+      continue;
+    }
+    // Slice moves -> (wide + face) decomposition
+    if (base === 'M') {
+      // M  = Rw' R
+      // M' = R' Rw
+      // M2 = R2 Rw2
+      if (suf === "'") out.push("R'", 'Rw');
+      else if (suf === '2') out.push('R2', 'Rw2');
+      else out.push("Rw'", 'R');
+      continue;
+    }
+    if (base === 'E') {
+      // E  = Uw' U
+      // E' = U' Uw
+      // E2 = U2 Uw2
+      if (suf === "'") out.push("U'", 'Uw');
+      else if (suf === '2') out.push('U2', 'Uw2');
+      else out.push("Uw'", 'U');
+      continue;
+    }
+    if (base === 'S') {
+      // S  = F' Fw
+      // S' = Fw' F
+      // S2 = F2 Fw2
+      if (suf === "'") out.push("Fw'", 'F');
+      else if (suf === '2') out.push('F2', 'Fw2');
+      else out.push("F'", 'Fw');
+      continue;
+    }
+    // Keep anything else (R, U, x, y, z, Rw, etc.)
+    out.push(base + suf);
+  }
+  return _cleanAlg(out.join(' '));
+}
 function _randInt(n) { return Math.floor(Math.random() * n); }
 
 function _pickRandomAlgFromSet(eventId) {
@@ -2207,8 +2284,17 @@ async function generatePracticeScrambleText() {
   }
   const raw = _pickRandomAlgFromSet(currentEvent);
   if (!raw) return '';
-  // For ZBLS/ZBLL/OLL/PLL we use "randomstate" to make it look like a real scramble
-  return _generateAlgScramble(raw, { randomstate: true, preLen: 6, auf: true });
+
+  // Alg-Trainer algs often contain wide (u/r/l/...) and slice (M/E/S) moves.
+  // The embedded Cube parser in this app only supports basic face turns,
+  // so for practice events we generate a correct setup scramble by inverting the alg string.
+  // (This does NOT touch normal event scrambles.)
+  const inv = _invertAlgString(raw);
+
+  // Light obfuscation without cube simulation: optional cube rotation + AUF.
+  const rot = ['', 'y', "y'", 'y2'][_randInt(4)];
+  const auf = ['', 'U', "U'", 'U2'][_randInt(4)];
+  return _cleanAlg([rot, inv, auf].filter(Boolean).join(' '));
 }
 
 const suffixes = ["", "'", "2"];
@@ -3322,7 +3408,9 @@ function updateScrambleDiagram() {
     scrambleDiagram.classList.remove('hidden');
     // scramble-display auto-updates when attributes change.
     scrambleDiagram.setAttribute('event', mapEventIdForCubing(currentEvent));
-    scrambleDiagram.setAttribute('scramble', String(currentScramble || '').replace(/\n/g, ' '));
+    const _scr = String(currentScramble || '').replace(/\n/g, ' ');
+    const _diagScr = isPracticeEvent(currentEvent) ? _practiceAlgForDiagram(_scr) : _scr;
+    scrambleDiagram.setAttribute('scramble', _diagScr);
 }
 window.generateMbfScrambles = async () => {
     const count = parseInt(mbfCubeInput.value);
