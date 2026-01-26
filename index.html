@@ -255,7 +255,7 @@
 	                
                 <!-- Practice scramble sources -->
                 <div class="pt-3">
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-slate-600 mb-2">Practice Sources</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-slate-600 mb-2">라이센스 / License</p>
                     <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                         <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
                             Practice scrambles (F2L/OLL/PLL/ZBLS/ZBLL) use alg data & scramble approach adapted from <span class="font-black">Alg-Trainer</span> by Tao Yu (MIT License).
@@ -470,18 +470,12 @@
                                 <option value="333mbf">Multi-BLD</option>
                             </optgroup>
                         
-                            <optgroup label="Practice">
-                                <option value="p_f2l">F2L (Cross Only)</option>
-                                <option value="p_oll">OLL</option>
+                            <optgroup label="Practice">                                <option value="p_oll">OLL</option>
                                 <option value="p_pll">PLL</option>
                                 <option value="p_zbls">ZBLS</option>
                                 <option value="p_zbll">ZBLL</option>
                             </optgroup>
 </select>
-                        <div id="practiceCaseTabs" class="hidden mt-3 w-full max-w-md">
-                            <div id="practiceCaseTabsInner" class="flex items-center gap-2 overflow-x-auto py-1 px-1 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800"></div>
-                        </div>
-
                         <!-- (UX) 스크롤 선택 기능은 유지하되 안내 문구는 제거 -->
                     </div>
                 </div>
@@ -494,7 +488,8 @@
                         <button onclick="switchCategory('blind')" id="cat-blind" class="category-btn px-6 py-2.5 text-xs font-bold rounded-full transition-colors text-slate-500 dark:text-slate-400">Blind</button>
                         <button onclick="switchCategory(\'practice\')" id="cat-practice" class="category-btn px-6 py-2.5 text-xs font-bold rounded-full transition-colors text-slate-500 dark:text-slate-400">Practice</button>
                     </div>
-                    <div class="bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex overflow-x-auto max-w-full custom-scroll">
+                    <div class="flex items-center gap-2 w-full">
+                        <div id="eventTabScroll" class="bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex overflow-x-auto max-w-full custom-scroll flex-1">
                         <div id="group-standard" class="flex gap-1">
                             <button onclick="changeEvent('333')" class="event-tab active px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-333">3x3</button>
                             <button onclick="changeEvent('222')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-222">2x2</button>
@@ -518,21 +513,20 @@
                             <button onclick="changeEvent('555bf')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-555bf">5BLD</button>
                             <button onclick="changeEvent('333mbf')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-333mbf">Multi-BLD</button>
                         </div>
-                        <div id="group-practice" class="hidden flex gap-1">
-                            <button onclick="changeEvent('p_f2l')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_f2l">F2L</button>
-                            <button onclick="changeEvent('p_oll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_oll">OLL</button>
+                        <div id="group-practice" class="hidden flex gap-1">                            <button onclick="changeEvent('p_oll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_oll">OLL</button>
                             <button onclick="changeEvent('p_pll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_pll">PLL</button>
                             <button onclick="changeEvent('p_zbls')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_zbls">ZBLS</button>
                             <button onclick="changeEvent('p_zbll')" class="event-tab px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400" id="tab-p_zbll">ZBLL</button>
                         </div>
 
+                        </div>
+
                         <!-- Case selector (only for ZBLS/ZBLL) -->
                         <div id="caseSelectWrap" class="hidden shrink-0 flex items-center gap-2 pl-2 pr-2">
                             <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Case</span>
-                            <select id="caseSelect" onchange="changePracticeCase(this.value)" class="bg-slate-50 dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-blue-400 transition-all">
-                                <option value="any">Random</option>
-                            </select>
-                        </div>
+                            <div id="caseTabs" class="flex items-center gap-1 overflow-x-auto max-w-[46vw] pr-1"></div>
+                            <select id="caseSelect" onchange="changePracticeCase(this.value)" class="hidden"></select>
+</div>
 
                     </div>
                 </div>
