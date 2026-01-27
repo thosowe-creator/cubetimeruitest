@@ -1982,6 +1982,37 @@ Object.assign(configs, {  'p_oll': { moves: configs['333'].moves, len: configs['
 
 let currentPracticeCase = 'any';
 
+// --- ZBLS Hand (R/L) ---
+const PRACTICE_ZBLS_HAND_KEY = 'practiceZblsHand';
+let practiceZblsHand = (() => {
+  try {
+    const v = String(localStorage.getItem(PRACTICE_ZBLS_HAND_KEY) || 'R').toUpperCase();
+    return (v === 'L') ? 'L' : 'R';
+  } catch (_) {
+    return 'R';
+  }
+})();
+let _zblsHandDraft = practiceZblsHand;
+
+function _saveZblsHand(value) {
+  practiceZblsHand = (value === 'L') ? 'L' : 'R';
+  try { localStorage.setItem(PRACTICE_ZBLS_HAND_KEY, practiceZblsHand); } catch (_) {}
+}
+
+function _updateZblsHandUI() {
+  const row = document.getElementById('zblsHandRow');
+  if (!row) return;
+  const r = document.getElementById('zblsHandR');
+  const l = document.getElementById('zblsHandL');
+  if (r) r.classList.toggle('active', _zblsHandDraft !== 'L');
+  if (l) l.classList.toggle('active', _zblsHandDraft === 'L');
+}
+
+window.setZblsHandDraft = (value) => {
+  _zblsHandDraft = (String(value || '').toUpperCase() === 'L') ? 'L' : 'R';
+  _updateZblsHandUI();
+};
+
 // --- Practice case pool (per-event, stored separately to prevent overlap) ---
 const PRACTICE_CASE_POOL_PREFIX = 'practiceCasePool:';
 const practiceCasePoolState = {
@@ -2060,6 +2091,22 @@ function _getPracticeCaseKeyForScramble(eventId, keysAll) {
   const id = String(eventId || '').trim();
   const keys = (keysAll || []).map(String);
   _ensureCasePoolLoaded(id);
+
+  // For ZBLS/ZBLL: only two modes are supported here:
+  // - any  : random from all cases
+  // - pool : random from selected cases
+  // Legacy single-case selection (currentPracticeCase) is intentionally ignored
+  // to prevent "random -> stuck on one case" behavior.
+  if (id === 'p_zbls' || id === 'p_zbll') {
+    if (practiceCasePoolState[id]?.mode === 'pool') {
+      const pool = (practiceCasePoolState[id].selected || [])
+        .map(String)
+        .filter(k => keys.includes(k));
+      if (pool.length) return pool[_randInt(pool.length)];
+      // If pool is empty, fall back to all-random (sanitizer should avoid this anyway)
+    }
+    return keys[_randInt(keys.length)];
+  }
 
   // 1) Pool mode (multi-select) has priority: random from selected cases.
   if (practiceCasePoolState[id]?.mode === 'pool') {
@@ -2207,6 +2254,18 @@ window.openCasePoolModal = () => {
   _ensureCasePoolLoaded(eventId);
   _casePoolModalEventId = eventId;
 
+  // ZBLS Hand (draft only; commit on Apply)
+  const handRow = document.getElementById('zblsHandRow');
+  if (handRow) {
+    if (eventId === 'p_zbls') {
+      handRow.classList.remove('hidden');
+      _zblsHandDraft = (practiceZblsHand === 'L') ? 'L' : 'R';
+      _updateZblsHandUI();
+    } else {
+      handRow.classList.add('hidden');
+    }
+  }
+
   // Draft from stored state
   const st = practiceCasePoolState[eventId];
   _casePoolDraft = {
@@ -2249,6 +2308,9 @@ window.closeCasePoolModal = () => {
       overlay.classList.remove('active');
     }, 150);
   }
+  // Hide hand row when closing (prevents flashing when switching events)
+  const handRow = document.getElementById('zblsHandRow');
+  if (handRow) handRow.classList.add('hidden');
   _casePoolModalEventId = null;
 };
 
@@ -2268,19 +2330,30 @@ function _renderCasePoolList() {
   list.innerHTML = '';
   list.className = 'case-pool-list grid grid-cols-5 gap-2 custom-scroll pr-1';
 
+  const selectable = (_casePoolDraft?.mode === 'pool');
+
   keys.forEach(k => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'case-pool-item rounded-2xl px-2 py-2 text-xs font-black active:scale-95 transition-all';
     btn.textContent = String(k);
-    if (_casePoolDraft.selected.has(String(k))) btn.classList.add('selected');
-    btn.onclick = () => {
-      const key = String(k);
-      if (_casePoolDraft.selected.has(key)) _casePoolDraft.selected.delete(key);
-      else _casePoolDraft.selected.add(key);
-      btn.classList.toggle('selected');
-      _updateCasePoolCount();
-    };
+
+    const key = String(k);
+    if (_casePoolDraft.selected.has(key)) btn.classList.add('selected');
+
+    // In "Random (any)" mode, prevent individual selection changes.
+    if (!selectable) {
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+      btn.onclick = () => {
+        if (_casePoolDraft.selected.has(key)) _casePoolDraft.selected.delete(key);
+        else _casePoolDraft.selected.add(key);
+        btn.classList.toggle('selected');
+        _updateCasePoolCount();
+      };
+    }
+
     list.appendChild(btn);
   });
 
@@ -2296,8 +2369,15 @@ function _renderCasePoolList() {
 function _updateCasePoolCount() {
   const cnt = document.getElementById('casePoolCount');
   if (!cnt) return;
+
   const n = _casePoolDraft.selected ? _casePoolDraft.selected.size : 0;
-  cnt.textContent = (currentLang === 'ko') ? `선택 ${n}개` : `${n} selected`;
+
+  // Count is only meaningful in "Selected" (pool) mode.
+  if (_casePoolDraft.mode === 'pool') {
+    cnt.textContent = (currentLang === 'ko') ? `선택 ${n}개` : `${n} selected`;
+  } else {
+    cnt.textContent = '';
+  }
 
   const applyBtn = document.getElementById('casePoolApplyBtn');
   if (!applyBtn) return;
@@ -2305,6 +2385,15 @@ function _updateCasePoolCount() {
   applyBtn.disabled = disabled;
   applyBtn.classList.toggle('opacity-50', disabled);
   applyBtn.classList.toggle('cursor-not-allowed', disabled);
+
+  // In "Random" mode, prevent editing actions (Clear) because individual selection is disabled.
+  const clearBtn = document.getElementById('casePoolClearBtn');
+  if (clearBtn) {
+    const lock = (_casePoolDraft.mode !== 'pool');
+    clearBtn.disabled = lock;
+    clearBtn.classList.toggle('opacity-50', lock);
+    clearBtn.classList.toggle('cursor-not-allowed', lock);
+  }
 }
 
 window.setCasePoolMode = (mode) => {
@@ -2312,14 +2401,18 @@ window.setCasePoolMode = (mode) => {
   const anyBtn = document.getElementById('casePoolModeAny');
   const poolBtn = document.getElementById('casePoolModePool');
   const hint = document.getElementById('casePoolModeHint');
+
   if (anyBtn) anyBtn.classList.toggle('active', _casePoolDraft.mode === 'any');
   if (poolBtn) poolBtn.classList.toggle('active', _casePoolDraft.mode === 'pool');
+
   if (hint) {
     hint.textContent = (_casePoolDraft.mode === 'pool')
       ? ((currentLang === 'ko') ? '선택한 케이스 안에서 랜덤' : 'Random from selected cases')
       : ((currentLang === 'ko') ? '전체 케이스에서 랜덤' : 'Random from all cases');
   }
-  _updateCasePoolCount();
+
+  // Re-render to reflect disabled/enabled case list behavior.
+  _renderCasePoolList();
 };
 
 window.clearCasePoolSelection = () => {
@@ -2341,6 +2434,11 @@ window.applyCasePoolSelection = () => {
   practiceCasePoolState[eventId].selected = selected;
   _sanitizeCasePoolSelection(eventId);
   _saveCasePoolState(eventId);
+
+  // Commit ZBLS hand choice
+  if (eventId === 'p_zbls') {
+    _saveZblsHand(_zblsHandDraft);
+  }
 
   // Avoid overriding pool mode by legacy single-case selection
   currentPracticeCase = 'any';
@@ -2444,6 +2542,145 @@ function _invertAlgString(algText) {
   return _cleanAlg(inv.join(' '));
 }
 
+// ZBLS left-hand mode: swap R<->L (including r/l, Rw/Lw, 3Rw/3Lw...) and invert direction.
+// Example: R L U B -> L' R' U' B'
+function _swapRLAndInvertAlgString(algText) {
+  const parts = _cleanAlg(algText).split(' ').filter(Boolean);
+  const out = parts.map((tok) => {
+    const m = String(tok).trim().match(/^([0-9]*)([A-Za-z]+)(2|')?$/);
+    if (!m) return tok;
+    const prefixNum = m[1] || '';
+    let base = m[2] || '';
+    const suf = m[3] || '';
+
+    // swap only the first face letter if it's R/L (or r/l)
+    if (base.length) {
+      const first = base[0];
+      const rest = base.slice(1);
+      if (first === 'R') base = 'L' + rest;
+      else if (first === 'L') base = 'R' + rest;
+      else if (first === 'r') base = 'l' + rest;
+      else if (first === 'l') base = 'r' + rest;
+    }
+
+    // invert suffix (keep 2 as-is)
+    let nextSuf = '';
+    if (suf === '2') nextSuf = '2';
+    else if (suf === "'") nextSuf = '';
+    else nextSuf = "'";
+
+    return `${prefixNum}${base}${nextSuf}`;
+  });
+  return _cleanAlg(out.join(' '));
+}
+
+// Normalize an alg string (practice only):
+// - remove cube rotations (x/y/z)
+// - merge consecutive identical bases (U U -> U2, U U' -> removed, etc.)
+function _normalizePracticeAlgString(algText) {
+  const raw = _cleanAlg(algText);
+  if (!raw) return '';
+
+  const tokens = raw.split(' ').filter(Boolean);
+  const out = [];
+
+  // Orientation mapping: local face -> global face
+  // Start identity and update when we encounter x/y/z.
+  let ori = { U:'U', D:'D', F:'F', B:'B', R:'R', L:'L' };
+
+  const applyRotX = () => {
+    // x: rotate as R (new U = old F, new F = old D, new D = old B, new B = old U)
+    ori = { U: ori.F, F: ori.D, D: ori.B, B: ori.U, R: ori.R, L: ori.L };
+  };
+  const applyRotY = () => {
+    // y: rotate as U (new F = old L, new R = old F, new B = old R, new L = old B)
+    ori = { U: ori.U, D: ori.D, F: ori.L, R: ori.F, B: ori.R, L: ori.B };
+  };
+  const applyRotZ = () => {
+    // z: rotate as F (new U = old L, new R = old U, new D = old R, new L = old D)
+    ori = { F: ori.F, B: ori.B, U: ori.L, R: ori.U, D: ori.R, L: ori.D };
+  };
+  const applyRotation = (axis, turns) => {
+    const t = ((turns % 4) + 4) % 4;
+    for (let i = 0; i < t; i++) {
+      if (axis === 'x') applyRotX();
+      else if (axis === 'y') applyRotY();
+      else if (axis === 'z') applyRotZ();
+    }
+  };
+
+  const parse = (tok) => {
+    const s = String(tok).trim();
+
+    // Fix weird tokens like "U2'" -> treat as "U2"
+    const m2 = s.match(/^([A-Za-z]+)2'$/);
+    if (m2) return { base: m2[1], suf: '2' };
+
+    const m = s.match(/^([A-Za-z]+)(2|')?$/);
+    if (!m) return null;
+    return { base: m[1], suf: m[2] || '' };
+  };
+
+  const pow = (suf) => (suf === '2' ? 2 : (suf === "'" ? 3 : 1));
+  const sufFrom = (p) => {
+    const v = ((p % 4) + 4) % 4;
+    if (v === 0) return '';
+    if (v === 1) return '';
+    if (v === 2) return '2';
+    return "'"; // 3
+  };
+
+  const remapBase = (base) => {
+    // Cube rotations are absorbed into `ori` and removed from output.
+    if (base === 'x' || base === 'y' || base === 'z') return base;
+
+    // Face turns
+    if (base.length === 1) {
+      const ch = base;
+      if ('URFDLB'.includes(ch)) return ori[ch];
+      if ('urfdlb'.includes(ch)) return ori[ch.toUpperCase()].toLowerCase(); // wide (r/l/u/d/f/b)
+      return base;
+    }
+
+    // Wide turns like Rw, Uw...
+    if (base.length === 2 && base[1] === 'w' && 'URFDLB'.includes(base[0])) {
+      return ori[base[0]] + 'w';
+    }
+
+    // If something else (M/E/S, 3Rw, etc.) slips through, keep it as-is.
+    return base;
+  };
+
+  for (const tok of tokens) {
+    const p = parse(tok);
+    if (!p) { out.push(tok); continue; }
+
+    // Absorb cube rotations (x/y/z) into orientation mapping instead of deleting them.
+    if (p.base === 'x' || p.base === 'y' || p.base === 'z') {
+      applyRotation(p.base, pow(p.suf));
+      continue;
+    }
+
+    const mappedBase = remapBase(p.base);
+    const mappedTok = mappedBase + p.suf;
+
+    const last = out.length ? parse(out[out.length - 1]) : null;
+    if (last) {
+      const lastMappedBase = last.base; // already mapped in output
+      if (lastMappedBase === mappedBase) {
+        const merged = (pow(last.suf) + pow(p.suf)) % 4;
+        if (merged === 0) out.pop();
+        else out[out.length - 1] = mappedBase + sufFrom(merged);
+        continue;
+      }
+    }
+
+    out.push(mappedTok);
+  }
+
+  return _cleanAlg(out.join(' '));
+}
+
 // Convert practice scramble tokens to a cubing.js-friendly form for scramble-display.
 // - lowercase u/r/l/f/b/d => Uw/Rw/Lw/Fw/Bw/Dw
 // - slice moves M/E/S => wide + face combos (no slice tokens needed)
@@ -2516,18 +2753,12 @@ function _pickRandomAlgFromSet(eventId) {
   if (eventId === 'p_zbls') {
     const keys = Object.keys(ZBLS || {});
     const chosenKey = _getPracticeCaseKeyForScramble(eventId, keys);
-  if (practiceCasePoolState[eventId]?.mode !== 'pool') {
-    currentPracticeCase = chosenKey || 'any';
-  }
     const arr = ZBLS[chosenKey] || [];
     return arr.length ? arr[_randInt(arr.length)] : '';
   }
   if (eventId === 'p_zbll') {
     const keys = Object.keys(algdbZBLL || {});
     const chosenKey = _getPracticeCaseKeyForScramble(eventId, keys);
-  if (practiceCasePoolState[eventId]?.mode !== 'pool') {
-    currentPracticeCase = chosenKey || 'any';
-  }
     const arr = algdbZBLL[chosenKey] || [];
     return arr.length ? arr[_randInt(arr.length)] : '';
   }
@@ -2608,10 +2839,15 @@ async function generatePracticeScrambleText() {  const raw = _pickRandomAlgFromS
   // (This does NOT touch normal event scrambles.)
   const inv = _invertAlgString(raw);
 
-  // Light obfuscation without cube simulation: optional cube rotation + AUF.
-  const rot = ['', 'y', "y'", 'y2'][_randInt(4)];
+  // Add a light AUF only (no cube rotations). We'll normalize after, so U U won't happen.
   const auf = ['', 'U', "U'", 'U2'][_randInt(4)];
-  return _cleanAlg([rot, inv, auf].filter(Boolean).join(' '));
+  let scramble = _cleanAlg([inv, auf].filter(Boolean).join(' '));
+  // ZBLS hand mode (R/L)
+  if (String(currentEvent || '').trim() === 'p_zbls' && practiceZblsHand === 'L') {
+    scramble = _swapRLAndInvertAlgString(scramble);
+  }
+  // Clean up weird edges like y2/y and consecutive U/U'
+  return _normalizePracticeAlgString(scramble);
 }
 
 const suffixes = ["", "'", "2"];

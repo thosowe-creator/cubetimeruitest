@@ -735,12 +735,23 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   max-height: calc(100dvh - 2rem);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+#casePoolModal .space-y-3{
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 #casePoolModal .case-pool-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
+
 .case-pool-pill{
   padding: 6px 10px;
   border-radius: 9999px;
