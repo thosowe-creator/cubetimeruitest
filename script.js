@@ -2830,23 +2830,22 @@ function _generateAlgScramble(rawAlg, opts = {}) {
   return _cleanAlg(scramble);
 }
 
-async function generatePracticeScrambleText() {  const raw = _pickRandomAlgFromSet(currentEvent);
+async function generatePracticeScrambleText() {
+  const raw = _pickRandomAlgFromSet(currentEvent);
   if (!raw) return '';
 
-  // Alg-Trainer algs often contain wide (u/r/l/...) and slice (M/E/S) moves.
-  // The embedded Cube parser in this app only supports basic face turns,
-  // so for practice events we generate a correct setup scramble by inverting the alg string.
-  // (This does NOT touch normal event scrambles.)
-  // Goal (bug-hunting mode): show the *pure* practice setup scramble.
-  // That means: choose an alg, optionally mirror it for ZBLS left-hand,
-  // then invert once. No AUF, no normalize/merge, no rotation absorption.
+  // Practice events (OLL/PLL/ZBLS/ZBLL):
+  // Produce a *pure* setup scramble for debugging: invert the case alg only.
+  // No AUF, no rotation normalization, no move merging/cancellation.
   let algText = _cleanAlg(raw);
+
+  // ZBLS hand mode (R/L): mirror the *solution alg* first, then invert once.
   if (String(currentEvent || '').trim() === 'p_zbls' && practiceZblsHand === 'L') {
-    // Mirror the *solution* alg first, then invert once to get the setup scramble.
     algText = _swapRLAndInvertAlgString(algText);
   }
-  const scramble = _invertAlgString(algText);
-  return _cleanAlg(scramble);
+
+  const inv = _invertAlgString(algText);
+  return _cleanAlg(inv);
 }
 
 const suffixes = ["", "'", "2"];
