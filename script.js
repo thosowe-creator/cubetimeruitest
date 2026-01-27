@@ -1982,6 +1982,128 @@ Object.assign(configs, {  'p_oll': { moves: configs['333'].moves, len: configs['
 
 let currentPracticeCase = 'any';
 
+// --- Practice case pool (per-event, stored separately to prevent overlap) ---
+const PRACTICE_CASE_POOL_PREFIX = 'practiceCasePool:';
+const practiceCasePoolState = {
+  'p_zbls': { mode: 'any', selected: [] },
+  'p_zbll': { mode: 'any', selected: [] },
+};
+
+function _poolKey(eventId) {
+  return PRACTICE_CASE_POOL_PREFIX + String(eventId || '').trim();
+}
+
+function _loadCasePoolState(eventId) {
+  const id = String(eventId || '').trim();
+  if (!practiceCasePoolState[id]) return;
+  try {
+    const raw = localStorage.getItem(_poolKey(id));
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const mode = (parsed && (parsed.mode === 'pool')) ? 'pool' : 'any';
+    const selected = Array.isArray(parsed?.selected) ? parsed.selected.map(String) : [];
+    practiceCasePoolState[id].mode = mode;
+    practiceCasePoolState[id].selected = selected;
+  } catch (_) {
+    // ignore corrupt storage
+  }
+}
+
+function _saveCasePoolState(eventId) {
+  const id = String(eventId || '').trim();
+  if (!practiceCasePoolState[id]) return;
+  try {
+    const st = practiceCasePoolState[id];
+    localStorage.setItem(_poolKey(id), JSON.stringify({
+      mode: (st.mode === 'pool') ? 'pool' : 'any',
+      selected: Array.isArray(st.selected) ? st.selected.map(String) : [],
+    }));
+  } catch (_) {}
+}
+
+function _getAllowedCaseKeys(eventId) {
+  const options = getPracticeCaseOptions(eventId) || [];
+  return options.filter(k => k !== 'any').map(String);
+}
+
+function _sanitizeCasePoolSelection(eventId) {
+  const id = String(eventId || '').trim();
+  if (!practiceCasePoolState[id]) return;
+  const allowed = new Set(_getAllowedCaseKeys(id));
+  const uniq = [];
+  const seen = new Set();
+  for (const k of (practiceCasePoolState[id].selected || [])) {
+    const kk = String(k);
+    if (!allowed.has(kk)) continue;
+    if (seen.has(kk)) continue;
+    seen.add(kk);
+    uniq.push(kk);
+  }
+  practiceCasePoolState[id].selected = uniq;
+  // If pool mode but nothing selected, fall back to any to avoid silent "empty random"
+  if (practiceCasePoolState[id].mode === 'pool' && uniq.length === 0) {
+    practiceCasePoolState[id].mode = 'any';
+  }
+}
+
+function _ensureCasePoolLoaded(eventId) {
+  const id = String(eventId || '').trim();
+  if (!practiceCasePoolState[id]) return;
+  // Load once lazily
+  if (practiceCasePoolState[id]._loaded) return;
+  practiceCasePoolState[id]._loaded = true;
+  _loadCasePoolState(id);
+  _sanitizeCasePoolSelection(id);
+}
+
+function _getPracticeCaseKeyForScramble(eventId, keysAll) {
+  const id = String(eventId || '').trim();
+  const keys = (keysAll || []).map(String);
+  _ensureCasePoolLoaded(id);
+
+  // 1) Pool mode (multi-select) has priority: random from selected cases.
+  if (practiceCasePoolState[id]?.mode === 'pool') {
+    const pool = (practiceCasePoolState[id].selected || []).map(String).filter(k => keys.includes(k));
+    if (pool.length) return pool[_randInt(pool.length)];
+  }
+
+  // 2) Legacy single-case selection.
+  if (currentPracticeCase && currentPracticeCase !== 'any') {
+    return String(currentPracticeCase);
+  }
+
+  // 3) Otherwise random from all.
+  return keys[_randInt(keys.length)];
+}
+
+function updateCasePoolSummary(eventId) {
+  const btn = document.getElementById('casePoolOpenBtn');
+  const sum = document.getElementById('casePoolSummary');
+  if (!btn || !sum) return;
+
+  const id = String(eventId || '').trim();
+  if (id !== 'p_zbls' && id !== 'p_zbll') {
+    btn.textContent = (currentLang === 'ko') ? '랜덤' : 'Random';
+    sum.textContent = '';
+    return;
+  }
+
+  _ensureCasePoolLoaded(id);
+  const st = practiceCasePoolState[id];
+  const count = (st.selected || []).length;
+
+  // Button label
+  btn.textContent = (currentLang === 'ko') ? '선택…' : 'Select…';
+
+  // Summary
+  if (st.mode === 'pool') {
+    sum.textContent = (currentLang === 'ko') ? `선택 ${count}개` : `${count} selected`;
+  } else {
+    sum.textContent = (currentLang === 'ko') ? '전체 랜덤' : 'All random';
+  }
+}
+
+
 // [FIX] Some deployed HTML variants contain an empty #caseSelectWrap without required children.
 // This helper ensures the required DOM exists so case tabs can render.
 function ensureCaseSelectorDOM() {
@@ -2075,6 +2197,160 @@ function updateCaseTabActive() {
   });
 }
 
+// --- Case pool modal (Settings-style) ---
+let _casePoolModalEventId = null;
+let _casePoolDraft = { mode: 'any', selected: new Set() };
+
+window.openCasePoolModal = () => {
+  const eventId = String(currentEvent || '').trim();
+  if (eventId !== 'p_zbls' && eventId !== 'p_zbll') return;
+  _ensureCasePoolLoaded(eventId);
+  _casePoolModalEventId = eventId;
+
+  // Draft from stored state
+  const st = practiceCasePoolState[eventId];
+  _casePoolDraft = {
+    mode: st.mode === 'pool' ? 'pool' : 'any',
+    selected: new Set((st.selected || []).map(String)),
+  };
+
+  // Title
+  const title = document.getElementById('casePoolTitle');
+  if (title) {
+    const label = PRACTICE_EVENTS?.[eventId]?.label || 'Case';
+    title.textContent = (currentLang === 'ko') ? `${label} 케이스 선택` : `${label} Case Selection`;
+  }
+
+  // Render list
+  _renderCasePoolList();
+
+  // Show modal
+  const overlay = document.getElementById('casePoolOverlay');
+  const modal = document.getElementById('casePoolModal');
+  if (overlay && modal) {
+    overlay.classList.add('active');
+    requestAnimationFrame(() => {
+      modal.classList.remove('scale-95', 'opacity-0');
+      modal.classList.add('scale-100', 'opacity-100');
+    });
+  }
+
+  // Initialize mode UI
+  window.setCasePoolMode(_casePoolDraft.mode);
+};
+
+window.closeCasePoolModal = () => {
+  const overlay = document.getElementById('casePoolOverlay');
+  const modal = document.getElementById('casePoolModal');
+  if (overlay && modal) {
+    modal.classList.add('scale-95', 'opacity-0');
+    modal.classList.remove('scale-100', 'opacity-100');
+    setTimeout(() => {
+      overlay.classList.remove('active');
+    }, 150);
+  }
+  _casePoolModalEventId = null;
+};
+
+window.handleOutsideCasePoolClick = (event) => {
+  if (event?.target?.id === 'casePoolOverlay') window.closeCasePoolModal();
+};
+
+function _renderCasePoolList() {
+  const eventId = _casePoolModalEventId;
+  if (!eventId) return;
+
+  const list = document.getElementById('casePoolList');
+  const hint = document.getElementById('casePoolModeHint');
+  if (!list) return;
+
+  const keys = _getAllowedCaseKeys(eventId);
+  list.innerHTML = '';
+  list.className = 'case-pool-list grid grid-cols-5 gap-2 custom-scroll pr-1';
+
+  keys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'case-pool-item rounded-2xl px-2 py-2 text-xs font-black active:scale-95 transition-all';
+    btn.textContent = String(k);
+    if (_casePoolDraft.selected.has(String(k))) btn.classList.add('selected');
+    btn.onclick = () => {
+      const key = String(k);
+      if (_casePoolDraft.selected.has(key)) _casePoolDraft.selected.delete(key);
+      else _casePoolDraft.selected.add(key);
+      btn.classList.toggle('selected');
+      _updateCasePoolCount();
+    };
+    list.appendChild(btn);
+  });
+
+  _updateCasePoolCount();
+
+  if (hint) {
+    hint.textContent = (_casePoolDraft.mode === 'pool')
+      ? ((currentLang === 'ko') ? '선택한 케이스 안에서 랜덤' : 'Random from selected cases')
+      : ((currentLang === 'ko') ? '전체 케이스에서 랜덤' : 'Random from all cases');
+  }
+}
+
+function _updateCasePoolCount() {
+  const cnt = document.getElementById('casePoolCount');
+  if (!cnt) return;
+  const n = _casePoolDraft.selected ? _casePoolDraft.selected.size : 0;
+  cnt.textContent = (currentLang === 'ko') ? `선택 ${n}개` : `${n} selected`;
+
+  const applyBtn = document.getElementById('casePoolApplyBtn');
+  if (!applyBtn) return;
+  const disabled = (_casePoolDraft.mode === 'pool' && n === 0);
+  applyBtn.disabled = disabled;
+  applyBtn.classList.toggle('opacity-50', disabled);
+  applyBtn.classList.toggle('cursor-not-allowed', disabled);
+}
+
+window.setCasePoolMode = (mode) => {
+  _casePoolDraft.mode = (mode === 'pool') ? 'pool' : 'any';
+  const anyBtn = document.getElementById('casePoolModeAny');
+  const poolBtn = document.getElementById('casePoolModePool');
+  const hint = document.getElementById('casePoolModeHint');
+  if (anyBtn) anyBtn.classList.toggle('active', _casePoolDraft.mode === 'any');
+  if (poolBtn) poolBtn.classList.toggle('active', _casePoolDraft.mode === 'pool');
+  if (hint) {
+    hint.textContent = (_casePoolDraft.mode === 'pool')
+      ? ((currentLang === 'ko') ? '선택한 케이스 안에서 랜덤' : 'Random from selected cases')
+      : ((currentLang === 'ko') ? '전체 케이스에서 랜덤' : 'Random from all cases');
+  }
+  _updateCasePoolCount();
+};
+
+window.clearCasePoolSelection = () => {
+  if (_casePoolDraft?.selected) _casePoolDraft.selected.clear();
+  _renderCasePoolList();
+};
+
+window.applyCasePoolSelection = () => {
+  const eventId = _casePoolModalEventId;
+  if (!eventId) return;
+
+  const selected = Array.from(_casePoolDraft.selected || []).map(String);
+  const mode = (_casePoolDraft.mode === 'pool') ? 'pool' : 'any';
+
+  if (mode === 'pool' && selected.length === 0) return;
+
+  _ensureCasePoolLoaded(eventId);
+  practiceCasePoolState[eventId].mode = mode;
+  practiceCasePoolState[eventId].selected = selected;
+  _sanitizeCasePoolSelection(eventId);
+  _saveCasePoolState(eventId);
+
+  // Avoid overriding pool mode by legacy single-case selection
+  currentPracticeCase = 'any';
+
+  updateCasePoolSummary(eventId);
+  window.closeCasePoolModal();
+  if (isPracticeEvent(currentEvent)) generateScramble();
+};
+
+
 function renderCaseTabs(options) {
   const tabs = document.getElementById('caseTabs');
   if (!tabs) return;
@@ -2118,6 +2394,7 @@ function setCaseSelectorVisible(visible, options = null) {
     sel.value = currentPracticeCase;
   }
   updateCaseTabActive();
+  updateCasePoolSummary(currentEvent);
   wrap.classList.remove('hidden');
 }
 
@@ -2128,6 +2405,7 @@ function refreshPracticeUI() {
   const eventId = String(currentEvent || '').trim();
   const options = getPracticeCaseOptions(eventId);
   setCaseSelectorVisible(!!options, options);
+  updateCasePoolSummary(eventId);
 }
 
 // --- Route 1 scramble builders (adapted from Alg-Trainer RubiksCube.js) ---
@@ -2237,13 +2515,19 @@ function _pickRandomAlgFromSet(eventId) {
   }
   if (eventId === 'p_zbls') {
     const keys = Object.keys(ZBLS || {});
-    const chosenKey = (currentPracticeCase && currentPracticeCase !== 'any') ? currentPracticeCase : keys[_randInt(keys.length)];
+    const chosenKey = _getPracticeCaseKeyForScramble(eventId, keys);
+  if (practiceCasePoolState[eventId]?.mode !== 'pool') {
+    currentPracticeCase = chosenKey || 'any';
+  }
     const arr = ZBLS[chosenKey] || [];
     return arr.length ? arr[_randInt(arr.length)] : '';
   }
   if (eventId === 'p_zbll') {
     const keys = Object.keys(algdbZBLL || {});
-    const chosenKey = (currentPracticeCase && currentPracticeCase !== 'any') ? currentPracticeCase : keys[_randInt(keys.length)];
+    const chosenKey = _getPracticeCaseKeyForScramble(eventId, keys);
+  if (practiceCasePoolState[eventId]?.mode !== 'pool') {
+    currentPracticeCase = chosenKey || 'any';
+  }
     const arr = algdbZBLL[chosenKey] || [];
     return arr.length ? arr[_randInt(arr.length)] : '';
   }
@@ -4429,6 +4713,8 @@ window.openThemeSettings = () => {
   const title = document.getElementById('settingsTitle');
 
   if (main) main.classList.add('hidden');
+  const lic = document.getElementById('licenseBlock');
+  if (lic) lic.classList.add('hidden');
   if (theme) theme.classList.remove('hidden');
   if (back) back.classList.remove('hidden');
   if (resetAll) resetAll.classList.remove('hidden');
@@ -4457,6 +4743,8 @@ window.closeThemeSettings = () => {
 
   if (theme) theme.classList.add('hidden');
   if (main) main.classList.remove('hidden');
+  const lic = document.getElementById('licenseBlock');
+  if (lic) lic.classList.remove('hidden');
   if (back) back.classList.add('hidden');
   if (resetAll) resetAll.classList.add('hidden');
   if (title) title.textContent = 'Settings';

@@ -728,3 +728,52 @@ button, .history-pen-btn, .penalty-btn { touch-action: manipulation; -webkit-tap
   border-color: rgb(37,99,235);
   color: white;
 }
+
+
+/* Case pool modal */
+#casePoolModal {
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+}
+#casePoolModal .case-pool-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.case-pool-pill{
+  padding: 6px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(148,163,184,0.35);
+  background: rgba(248,250,252,0.9);
+  color: rgb(71,85,105);
+  white-space: nowrap;
+}
+.case-pool-pill.active{
+  background: rgba(15,23,42,0.92);
+  color: white;
+  border-color: rgba(15,23,42,0.65);
+}
+.dark .case-pool-pill.active{
+  background: rgba(255,255,255,0.92);
+  color: rgb(15,23,42);
+  border-color: rgba(255,255,255,0.65);
+}
+.case-pool-item{
+  border: 1px solid rgba(148,163,184,0.35);
+  background: rgba(248,250,252,0.9);
+  color: rgb(71,85,105);
+}
+.case-pool-item.selected{
+  background: rgba(15,23,42,0.92);
+  color: white;
+  border-color: rgba(15,23,42,0.65);
+}
+.dark .case-pool-item.selected{
+  background: rgba(255,255,255,0.92);
+  color: rgb(15,23,42);
+  border-color: rgba(255,255,255,0.65);
+}
