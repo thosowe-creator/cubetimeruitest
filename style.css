@@ -634,17 +634,27 @@ html:not(.dark) .event-tab.active { background-color: rgb(var(--ct-accent-rgb));
 }
 
 
-.timer-center-shift {
-  /* Visually center the timer cluster on mobile */
-  transform: translateY(-12vh);
+/*
+  Timer positioning is handled by JS (positionTimerToViewportCenter) to prevent
+  overlap with the scramble box on mobile.
+
+  IMPORTANT: Do not apply any CSS transforms to #timerContainer (or wrappers)
+  that would conflict with JS translateY.
+*/
+.timer-center-shift { transform: none !important; }
+
+/* Minimum gap between scramble box and timer block (used by JS). */
+:root{
+  --timerGapMobile: 18px;
+  --timerGapDesktop: 14px;
 }
 
 @media (max-height: 700px) {
-  .timer-center-shift { transform: translateY(-8vh); }
+  :root{ --timerGapMobile: 16px; }
 }
 
-@media (min-width: 768px) {
-  .timer-center-shift { transform: translateY(-5vh); }
+@media (max-height: 620px) {
+  :root{ --timerGapMobile: 14px; }
 }
 
 /* Make tap targets consistently clickable on iOS inside scroll areas */

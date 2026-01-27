@@ -555,7 +555,14 @@ function positionTimerToViewportCenter() {
     const timerRect = timerContainerEl.getBoundingClientRect();
     const timerHalf = timerRect.height / 2;
 
-    const gap = window.innerWidth < 768 ? 10 : 14; // breathing room between scramble box and timer block
+    // "Transparent wall" between scramble box and timer block.
+    // Read from CSS vars so mobile/short-screen tuning is centralized in style.css.
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const gapVar = (window.innerWidth < 768)
+        ? rootStyles.getPropertyValue('--timerGapMobile')
+        : rootStyles.getPropertyValue('--timerGapDesktop');
+    const parsedGap = parseFloat(String(gapVar || '').trim());
+    const gap = Number.isFinite(parsedGap) ? parsedGap : (window.innerWidth < 768 ? 18 : 14);
     const minCenterY = scrambleRect.bottom + gap + timerHalf;
 
     // Target center is viewport center, but never collide with scramble area
