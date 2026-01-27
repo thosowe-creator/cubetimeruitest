@@ -2530,19 +2530,34 @@ function _cleanAlg(s) {
 
 // --- Practice alg helpers (string-level, no cube simulation) ---
 // We only use these for practice events (F2L/OLL/PLL/ZBLS/ZBLL) so we don't touch normal scramble logic.
-function _invertMoveToken(tok) {
+
+function _parseMoveToken(tok) {
+  // Supports optional numeric prefix for wide/slice counts (e.g., "3Rw2"),
+  // plus normal tokens like "R", "R'", "Rw", "u2", "M", "x", "y2".
+  // Also normalizes the odd "U2'" form into {suf:'2'}.
   const t = String(tok || '').trim();
-  if (!t) return '';
-  // Move token: base + optional suffix (2 or ')
-  // Examples: R, R', R2, Rw, Rw', u2, M', x, y2
-  const m = t.match(/^([A-Za-z]+)(2|')?$/);
-  if (!m) return t; // keep as-is
-  const base = m[1];
-  const suf = m[2] || '';
-  if (suf === '2') return base + '2';
-  if (suf === "'") return base;
-  return base + "'";
+  if (!t) return null;
+
+  const fix = t.match(/^([0-9]*)([A-Za-z]+)2'$/);
+  if (fix) return { prefix: fix[1] || '', base: fix[2], suf: '2' };
+
+  const m = t.match(/^([0-9]*)([A-Za-z]+)(2|')?$/);
+  if (!m) return null;
+
+  return { prefix: m[1] || '', base: m[2], suf: m[3] || '' };
 }
+
+function _invertMoveToken(tok) {
+  const p = _parseMoveToken(tok);
+  if (!p) return String(tok || '').trim();
+
+  const { prefix, base, suf } = p;
+
+  if (suf === '2') return `${prefix}${base}2`;
+  if (suf === "'") return `${prefix}${base}`;
+  return `${prefix}${base}'`;
+}
+
 function _invertAlgString(algText) {
   const parts = _cleanAlg(algText).split(' ').filter(Boolean);
   const inv = parts.reverse().map(_invertMoveToken);
@@ -2617,15 +2632,9 @@ function _normalizePracticeAlgString(algText) {
   };
 
   const parse = (tok) => {
-    const s = String(tok).trim();
-
-    // Fix weird tokens like "U2'" -> treat as "U2"
-    const m2 = s.match(/^([A-Za-z]+)2'$/);
-    if (m2) return { base: m2[1], suf: '2' };
-
-    const m = s.match(/^([A-Za-z]+)(2|')?$/);
-    if (!m) return null;
-    return { base: m[1], suf: m[2] || '' };
+    const p = _parseMoveToken(tok);
+    if (!p) return null;
+    return { prefix: p.prefix || '', base: p.base, suf: p.suf || '' };
   };
 
   const pow = (suf) => (suf === '2' ? 2 : (suf === "'" ? 3 : 1));
@@ -2669,15 +2678,16 @@ function _normalizePracticeAlgString(algText) {
     }
 
     const mappedBase = remapBase(p.base);
-    const mappedTok = mappedBase + p.suf;
+    const mappedTok = `${p.prefix || ''}${mappedBase}${p.suf || ''}`;
 
     const last = out.length ? parse(out[out.length - 1]) : null;
     if (last) {
-      const lastMappedBase = last.base; // already mapped in output
-      if (lastMappedBase === mappedBase) {
+      const lastKey = `${last.prefix || ''}${last.base}`;
+      const curKey = `${p.prefix || ''}${mappedBase}`;
+      if (lastKey === curKey) {
         const merged = (pow(last.suf) + pow(p.suf)) % 4;
         if (merged === 0) out.pop();
-        else out[out.length - 1] = mappedBase + sufFrom(merged);
+        else out[out.length - 1] = `${p.prefix || ''}${mappedBase}${sufFrom(merged)}`;
         continue;
       }
     }
@@ -2697,14 +2707,15 @@ function _practiceAlgForDiagram(algText) {
   const out = [];
   const invSuffix = (s) => (s === "'") ? '' : (s === '2' ? '2' : "'");
   const parse = (tok) => {
-    const m = tok.match(/^([A-Za-z]+)(2|')?$/);
-    if (!m) return { base: tok, suf: '' };
-    return { base: m[1], suf: m[2] || '' };
+    const p = _parseMoveToken(tok);
+    if (!p) return { prefix: '', base: tok, suf: '', raw: String(tok) };
+    return { prefix: p.prefix || '', base: p.base, suf: p.suf || '', raw: String(tok) };
   };
   const wideMap = { u: 'Uw', d: 'Dw', l: 'Lw', r: 'Rw', f: 'Fw', b: 'Bw' };
 
   for (const tok of parts) {
-    const { base, suf } = parse(tok);
+    const { prefix, base, suf, raw } = parse(tok);
+    if (prefix) { out.push(raw); continue; }
     // Lowercase single-face = wide move
     if (base.length === 1 && wideMap[base]) {
       out.push(wideMap[base] + suf);
@@ -2837,25 +2848,52 @@ function _generateAlgScramble(rawAlg, opts = {}) {
   return _cleanAlg(scramble);
 }
 
-async function generatePracticeScrambleText() {  const raw = _pickRandomAlgFromSet(currentEvent);
-  if (!raw) return '';
 
-  // Alg-Trainer algs often contain wide (u/r/l/...) and slice (M/E/S) moves.
-  // The embedded Cube parser in this app only supports basic face turns,
-  // so for practice events we generate a correct setup scramble by inverting the alg string.
-  // (This does NOT touch normal event scrambles.)
-  const inv = _invertAlgString(raw);
+function _isProbablyValidPracticeScramble(algText) {
+  const s = _cleanAlg(algText);
+  if (!s) return false;
+  // Reject obvious garbage
+  if (/[\/\,;:]/.test(s)) return false;
 
-  // Add a light AUF only (no cube rotations). We'll normalize after, so U U won't happen.
-  const auf = ['', 'U', "U'", 'U2'][_randInt(4)];
-  let scramble = _cleanAlg([inv, auf].filter(Boolean).join(' '));
-  // ZBLS hand mode (R/L)
-  if (String(currentEvent || '').trim() === 'p_zbls' && practiceZblsHand === 'L') {
-    scramble = _swapRLAndInvertAlgString(scramble);
+  const toks = s.split(' ').filter(Boolean);
+  for (const t of toks) {
+    const p = _parseMoveToken(t);
+    if (!p) return false;
+    // Disallow unexpected bases that occasionally leak from datasets
+    // (keep standard practice-friendly bases)
+    const b = p.base;
+    if (!/^[A-Za-z]+$/.test(b)) return false;
   }
-  // Clean up weird edges like y2/y and consecutive U/U'
-  return _normalizePracticeAlgString(scramble);
+  return true;
 }
+
+
+async function generatePracticeScrambleText() {
+  let last = '';
+  // Some datasets include rare edge-case tokens; retry a few times to avoid producing a "wrong" practice scramble.
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const raw = _pickRandomAlgFromSet(currentEvent);
+    if (!raw) return '';
+
+    const inv = _invertAlgString(raw);
+
+    // Add a light AUF only (no cube rotations). We'll normalize after, so U U won't happen.
+    const auf = ['', 'U', "U'", 'U2'][_randInt(4)];
+    let scramble = _cleanAlg([inv, auf].filter(Boolean).join(' '));
+
+    // ZBLS hand mode (R/L)
+    if (String(currentEvent || '').trim() === 'p_zbls' && practiceZblsHand === 'L') {
+      scramble = _swapRLAndInvertAlgString(scramble);
+    }
+
+    scramble = _normalizePracticeAlgString(scramble);
+    last = scramble;
+
+    if (_isProbablyValidPracticeScramble(scramble)) return scramble;
+  }
+  return last;
+}
+
 
 const suffixes = ["", "'", "2"];
 const orientations = ["x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"];
