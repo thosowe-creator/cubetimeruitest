@@ -2745,6 +2745,20 @@ function _practiceAlgForDiagram(algText) {
   }
   return _cleanAlg(out.join(' '));
 }
+
+// Retokenize alg text into space-separated moves for scramble-display.
+// This is ONLY for diagram rendering; it doesn't change the displayed scramble text.
+function _retokenizeAlgForDiagram(algText) {
+  const s = _cleanAlg(String(algText || '').replace(/\n/g, ' '));
+  if (!s) return '';
+  // Match common WCA-style move tokens, even if they're stuck together without spaces.
+  // Examples: R U R' | Rw2 | 3Rw' | u2 | M' | x y2 z'
+  const re = /(?:\d+)?(?:[URFDLBxyz][w]?|[urfdlb]|[MES])(?:2|')?/g;
+  const tokens = s.match(re);
+  if (!tokens || !tokens.length) return s;
+  return _cleanAlg(tokens.join(' '));
+}
+
 function _randInt(n) { return Math.floor(Math.random() * n); }
 
 function _pickRandomAlgFromSet(eventId) {
@@ -4699,7 +4713,8 @@ function updateScrambleDiagram() {
     // scramble-display auto-updates when attributes change.
     scrambleDiagram.setAttribute('event', mapEventIdForCubing(currentEvent));
     const _scr = String(currentScramble || '').replace(/\n/g, ' ');
-    const _diagScr = isPracticeEvent(currentEvent) ? _practiceAlgForDiagram(_scr) : _scr;
+    const _diagScr0 = isPracticeEvent(currentEvent) ? _practiceAlgForDiagram(_scr) : _scr;
+    const _diagScr = _retokenizeAlgForDiagram(_diagScr0);
     scrambleDiagram.setAttribute('scramble', _diagScr);
 }
 window.generateMbfScrambles = async () => {
