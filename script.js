@@ -3446,19 +3446,27 @@ function invertToken(tok) {
 }
 
   function obfuscate(algorithm, numPremoves=3, minLength=16, numPostmoves=0){
-    var premoves = getPremoves(numPremoves);
-    var postmoves = getPostmoves(numPostmoves);
+    // Port of Alg-Trainer obfuscate(), but using cubejs' Cube solver to avoid any drift from our RubiksCube shim.
+    // `algorithm` here is a setup scramble S (solved -> case). We want obAlg ~ S.
+    const premoves = getPremoves(numPremoves);
+    const postmoves = getPostmoves(numPostmoves);
 
-    const rc = new RubiksCube();
-    // Alg-Trainer expects `algorithm` to be a scramble. It inverts it internally.
-    rc.doAlgorithm(postmoves + invertCompact(algorithm) + premoves);
-    var o = rc.wcaOrient(); 
     ensureCubeSolver();
-    var solution = rc.solution();
 
-    var obAlg = moveRotationsToStart(premoves, o) + solution  + postmoves;
+    // Cube is "scrambled" by: postmoves + invert(S) + premoves
+    // Then we take the solver solution for that cube, and build:
+    // premoves + solution + postmoves  ~  S
+    const cube = new Cube();
+    const invAlg = invertCompact(algorithm); // invert(S)
+    const seq = (postmoves + invAlg + premoves).trim();
+    if (seq) cube.move(seq);
+
+    const solution = cube.solve(); // solves back to solved
+    let obAlg = (premoves + solution + postmoves).trim();
+
     obAlg = simplifyAlg(obAlg).replace(/2'/g, "2").trim();
-    return obAlg.split(" ").length >= minLength ? obAlg : obfuscate(algorithm, numPremoves+1, minLength, numPostmoves);
+    const len = obAlg.split(/\s+/).filter(Boolean).length;
+    return len >= minLength ? obAlg : obfuscate(algorithm, numPremoves+1, minLength, numPostmoves);
   }
 
   function generatePreScrambleFromSolution(rawSolutionAlg, generatorCSV, times){
@@ -3488,6 +3496,11 @@ async function generatePracticeScrambleText() {
   // Use Alg-Trainer compatible "real scramble" generation for stability.
   // Keep case selection logic intact; only the conversion from case-alg -> scramble is swapped.
   let solAlg = _cleanAlg(raw).replace(/2'/g, '2');
+
+  // Normalize wide-move notation to Alg-Trainer's expected lowercase wide turns (Rw -> r, etc.)
+  // Some datasets may include Rw/Uw/... which Alg-Trainer represents as r/u/... (lowercase).
+  solAlg = solAlg.replace(/(\d+)?([URFDLB])w/gi, (m, n, f) => String(f || '').toLowerCase());
+
 
   // ZBLS hand mode (R/L): mirror the *solution alg* (swap R/L and invert each token),
   // then generate scramble from that mirrored solution.
