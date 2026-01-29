@@ -1,12 +1,3 @@
-
-// ---- CubeTimer validator helpers ----
-function _resolveRubiksCube() {
-  if (typeof RubiksCube !== 'undefined') return RubiksCube;
-  if (typeof window !== 'undefined' && window.RubiksCube) return window.RubiksCube;
-  if (typeof globalThis !== 'undefined' && globalThis.RubiksCube) return globalThis.RubiksCube;
-  return null;
-}
-
 let solves = [];
 let sessions = {};
 let currentEvent = '333';
@@ -2745,20 +2736,6 @@ function _practiceAlgForDiagram(algText) {
   }
   return _cleanAlg(out.join(' '));
 }
-
-// Retokenize alg text into space-separated moves for scramble-display.
-// This is ONLY for diagram rendering; it doesn't change the displayed scramble text.
-function _retokenizeAlgForDiagram(algText) {
-  const s = _cleanAlg(String(algText || '').replace(/\n/g, ' '));
-  if (!s) return '';
-  // Match common WCA-style move tokens, even if they're stuck together without spaces.
-  // Examples: R U R' | Rw2 | 3Rw' | u2 | M' | x y2 z'
-  const re = /(?:\d+)?(?:[URFDLBxyz][w]?|[urfdlb]|[MES])(?:2|')?/g;
-  const tokens = s.match(re);
-  if (!tokens || !tokens.length) return s;
-  return _cleanAlg(tokens.join(' '));
-}
-
 function _randInt(n) { return Math.floor(Math.random() * n); }
 
 function _pickRandomAlgFromSet(eventId) {
@@ -3468,14 +3445,11 @@ function invertToken(tok) {
     }
 }
 
-  // Expose RubiksCube globally for practice-scramble validation
-  try { globalThis.RubiksCube = RubiksCube; } catch (e) {}
-
   function obfuscate(algorithm, numPremoves=3, minLength=16, numPostmoves=0){
     var premoves = getPremoves(numPremoves);
     var postmoves = getPostmoves(numPostmoves);
 
-    const rc = (function(){ const RC=_resolveRubiksCube(); if(!RC) throw new ReferenceError('RubiksCube is not defined'); return new RC(); })();
+    const rc = new RubiksCube();
     // Alg-Trainer expects `algorithm` to be a scramble. It inverts it internally.
     rc.doAlgorithm(postmoves + invertCompact(algorithm) + premoves);
     var o = rc.wcaOrient(); 
@@ -3506,62 +3480,6 @@ function invertToken(tok) {
   };
 })();
 
-// --- Practice scramble validation (ZBLS/ZBLL etc.) ---
-// Goal: ensure the generated scramble actually produces the intended case state.
-// Logs go to DevTools console for debugging.
-const PRACTICE_VALIDATE_AUF = ["", "U", "U2", "U'"];
-const PRACTICE_VALIDATE_MAX_TRIES = 30;
-
-function _getCubeStateAfterAlg(alg) {
-  const rc = (function(){ const RC=_resolveRubiksCube(); if(!RC) throw new ReferenceError('RubiksCube is not defined'); return new RC(); })();
-  rc.resetCube();
-  rc.doAlgorithm(String(alg || '').trim());
-  return rc.cubestate.slice();
-}
-
-function _statesEqual(a, b) {
-  if (!a || !b || a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
-function _validateScrambleAgainstTarget(scrambleAlg, targetState) {
-  const s = String(scrambleAlg || '').trim();
-  for (const auf of PRACTICE_VALIDATE_AUF) {
-    const testAlg = (auf ? (s + " " + auf) : s).trim();
-    const testState = _getCubeStateAfterAlg(testAlg);
-    if (_statesEqual(testState, targetState)) return true;
-  }
-  return false;
-}
-
-function _generateVerifiedPracticeScrambleFromSolution(solAlg, generatorCSV, times, logTag) {
-  // Target state is the cube state after applying the inverse of the solution algorithm.
-  // (i.e., the case starting state that solAlg should solve)
-  const targetScramble = PRACTICE_AT.invertCompact(solAlg);
-  const targetState = _getCubeStateAfterAlg(targetScramble);
-
-  let lastCandidate = "";
-  for (let tries = 1; tries <= PRACTICE_VALIDATE_MAX_TRIES; tries++) {
-    const candidate = PRACTICE_AT.generatePreScrambleFromSolution(solAlg, generatorCSV, times);
-    lastCandidate = candidate;
-
-    const ok = _validateScrambleAgainstTarget(candidate, targetState);
-    if (ok) {
-      console.debug(`[PracticeValidator] ${logTag} OK (tries=${tries})`);
-      return candidate;
-    }
-    // Light debug (keep it concise)
-    console.debug(`[PracticeValidator] ${logTag} fail (tries=${tries})`);
-  }
-
-  console.warn(`[PracticeValidator] ${logTag} fallback -> exact inverse (maxTries=${PRACTICE_VALIDATE_MAX_TRIES})`);
-  // Fallback: return the exact inverse (short but always correct)
-  return targetScramble;
-}
-
 async function generatePracticeScrambleText() {
   const raw = _pickRandomAlgFromSet(currentEvent);
   if (!raw) return '';
@@ -3585,12 +3503,12 @@ async function generatePracticeScrambleText() {
 
   if (ev === 'p_oll' || ev === 'p_pll') {
     // Alg-Trainer: OLL/PLL => PLL-style prescramble, then obfuscate
-    return _generateVerifiedPracticeScrambleFromSolution(solAlg, GEN_PLL, 100, `${ev}:${currentPracticeCase || 'any'}`);
+    return PRACTICE_AT.generatePreScrambleFromSolution(solAlg, GEN_PLL, 100);
   }
 
   if (ev === 'p_zbls' || ev === 'p_zbll') {
     // Alg-Trainer: ZBLS/ZBLL => heavier prescramble, then obfuscate
-    return _generateVerifiedPracticeScrambleFromSolution(solAlg, GEN_ZBLL, 1000, `${ev}:${currentPracticeCase || 'any'}`);
+    return PRACTICE_AT.generatePreScrambleFromSolution(solAlg, GEN_ZBLL, 1000);
   }
 
   // Fallback (shouldn't happen): mimic Alg-Trainer "obfuscate inverse"
@@ -4713,8 +4631,7 @@ function updateScrambleDiagram() {
     // scramble-display auto-updates when attributes change.
     scrambleDiagram.setAttribute('event', mapEventIdForCubing(currentEvent));
     const _scr = String(currentScramble || '').replace(/\n/g, ' ');
-    const _diagScr0 = isPracticeEvent(currentEvent) ? _practiceAlgForDiagram(_scr) : _scr;
-    const _diagScr = _retokenizeAlgForDiagram(_diagScr0);
+    const _diagScr = isPracticeEvent(currentEvent) ? _practiceAlgForDiagram(_scr) : _scr;
     scrambleDiagram.setAttribute('scramble', _diagScr);
 }
 window.generateMbfScrambles = async () => {
