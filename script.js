@@ -1,3 +1,12 @@
+
+// ---- CubeTimer validator helpers ----
+function _resolveRubiksCube() {
+  if (typeof RubiksCube !== 'undefined') return RubiksCube;
+  if (typeof window !== 'undefined' && window.RubiksCube) return window.RubiksCube;
+  if (typeof globalThis !== 'undefined' && globalThis.RubiksCube) return globalThis.RubiksCube;
+  return null;
+}
+
 let solves = [];
 let sessions = {};
 let currentEvent = '333';
@@ -3445,11 +3454,14 @@ function invertToken(tok) {
     }
 }
 
+  // Expose RubiksCube globally for practice-scramble validation
+  try { globalThis.RubiksCube = RubiksCube; } catch (e) {}
+
   function obfuscate(algorithm, numPremoves=3, minLength=16, numPostmoves=0){
     var premoves = getPremoves(numPremoves);
     var postmoves = getPostmoves(numPostmoves);
 
-    const rc = new RubiksCube();
+    const rc = (function(){ const RC=_resolveRubiksCube(); if(!RC) throw new ReferenceError('RubiksCube is not defined'); return new RC(); })();
     // Alg-Trainer expects `algorithm` to be a scramble. It inverts it internally.
     rc.doAlgorithm(postmoves + invertCompact(algorithm) + premoves);
     var o = rc.wcaOrient(); 
@@ -3487,7 +3499,7 @@ const PRACTICE_VALIDATE_AUF = ["", "U", "U2", "U'"];
 const PRACTICE_VALIDATE_MAX_TRIES = 30;
 
 function _getCubeStateAfterAlg(alg) {
-  const rc = new RubiksCube();
+  const rc = (function(){ const RC=_resolveRubiksCube(); if(!RC) throw new ReferenceError('RubiksCube is not defined'); return new RC(); })();
   rc.resetCube();
   rc.doAlgorithm(String(alg || '').trim());
   return rc.cubestate.slice();
