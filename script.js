@@ -2830,22 +2830,690 @@ function _generateAlgScramble(rawAlg, opts = {}) {
   return _cleanAlg(scramble);
 }
 
+
+// --- Alg-Trainer compatible practice scramble engine (OLL/PLL/ZBLL/ZBLS only) ---
+// This is a trimmed, DOM-free port of Tao Yu's Alg-Trainer scramble logic.
+// It intentionally keeps non-practice scramble logic untouched.
+const PRACTICE_AT = (() => {
+  // Tokenize an alg string that may or may not contain spaces.
+  // Supports: R U F D L B, rotations x y z, slices M E S, lowercase r u f d l b (wide-like).
+  function tokenizeAlg(s) {
+    const str = String(s || '').replace(/\s+/g, '').trim();
+    const tokens = [];
+    let i = 0;
+    const isFace = (ch) => /[RUFBLDrufbldxyzMES]/.test(ch);
+    while (i < str.length) {
+      const ch = str[i];
+      if (!isFace(ch)) { i++; continue; }
+      let tok = ch;
+      i++;
+      // Optional wide marker (e.g., Rw) - not used by Alg-Trainer's premove/postmove, but kept for safety
+      if (str[i] === 'w' || str[i] === 'W') { tok += 'w'; i++; }
+
+      // Optional digits (we care mainly about "2")
+      if (i < str.length && /[0-9]/.test(str[i])) {
+        // consume all digits but only keep mod 4 semantics later
+        let digits = '';
+        while (i < str.length && /[0-9]/.test(str[i])) { digits += str[i]; i++; }
+        tok += digits;
+      }
+      // Optional prime
+      if (i < str.length && str[i] === "'") { tok += "'"; i++; }
+
+      // Normalize weird "2'" (treat as "2")
+      tok = tok.replace(/2'/g, '2');
+      tokens.push(tok);
+    }
+    return tokens;
+  }
+
+  
+  let _solverReady = false;
+  function ensureCubeSolver() {
+    if (_solverReady) return;
+    try {
+      if (typeof Cube !== 'undefined' && typeof Cube.initSolver === 'function') {
+        Cube.initSolver();
+      }
+      _solverReady = true;
+    } catch (e) {
+      // If solver init fails, keep going; rc.solution() will throw and surface the error.
+      _solverReady = false;
+    }
+  }
+
+function invertToken(tok) {
+    tok = String(tok || '').trim();
+    if (!tok) return '';
+    // split into base + suffix
+    const m = tok.match(/^([0-9]*)([A-Za-z]+w?)([0-9]*)(\'?)$/);
+    if (!m) {
+      // fallback: toggle last prime or append prime
+      if (tok.endsWith("2")) return tok;
+      if (tok.endsWith("'")) return tok.slice(0, -1);
+      return tok + "'";
+    }
+    const prefixNum = m[1] || '';
+    const base = m[2] || '';
+    const digits = m[3] || '';
+    const prime = m[4] || '';
+
+    // Determine amount (quarter turns)
+    let amt = 1;
+    if (digits) {
+      const n = parseInt(digits, 10);
+      if (!Number.isNaN(n)) amt = ((n % 4) + 4) % 4;
+      if (amt === 0) amt = 0;
+    }
+    if (prime === "'") amt = (4 - amt) % 4;
+
+    // Invert amount
+    const invAmt = (4 - amt) % 4;
+
+    // Re-encode
+    if (invAmt === 0) return ''; // identity, should be dropped by simplify
+    if (invAmt === 1) return `${prefixNum}${base}`;
+    if (invAmt === 2) return `${prefixNum}${base}2`;
+    if (invAmt === 3) return `${prefixNum}${base}'`;
+    return `${prefixNum}${base}`;
+  }
+
+  // Equivalent to alg.cube.invert, but returns a compact string (no spaces),
+  // so concatenation behaves like Alg-Trainer's generators.
+  function invertCompact(algText) {
+    const tokens = tokenizeAlg(algText);
+    const inv = [];
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      const t = invertToken(tokens[i]);
+      if (t) inv.push(t);
+    }
+    return inv.join('');
+  }
+
+  function parseMove(move){
+    if (move.trim() == ""){
+        return [null, null];
+    }
+
+    var myRegexp = /([RUFBLDrufbldxyzEMS])(\d*)('?)/g;
+    var match = myRegexp.exec(move.trim());
+
+    if (match!=null) {
+
+        var side = match[1];
+
+        var times = 1;
+        if (!match[2]=="") {
+            times = match[2] % 4;
+        }
+
+        if (match[3]=="'") {
+            times = (4 - times) % 4;
+        }
+
+        return [side, times];
+    }
+    else {
+        return [null, null];
+    }
+  }
+
+  function moveRotationsToStart(rotationFreeAlg, rotations){
+    // Needs moves of algs to be separated by spaces
+    // wide moves not supported (matches Alg-Trainer assumptions)
+
+    let transformDict = {
+        "U": "U","R": "R","F": "F","B": "B","L": "L","D": "D"
+    };
+
+    let rotationEffectDict = {
+        "x": {"U":"B", "B":"D", "D":"F", "F":"U"},
+        "y": {"F":"L", "L":"B", "B":"R", "R":"F"},
+        "z": {"U":"R", "R":"D", "D":"L", "L":"U"}
+    };
+
+    let rotationsArr = rotations.trim().split(" ").filter(Boolean);
+
+    // apply rotations to the transformation dict
+    for (let i=0; i<rotationsArr.length; i++){
+        let rot = rotationsArr[i];
+        let [side, times] = parseMove(rot);
+        if (!side || !times) continue;
+        for (let t=0; t<times; t++){
+            let effect = rotationEffectDict[side];
+            if (!effect) continue;
+            let newTransformDict = Object.assign({}, transformDict);
+            for (let key in effect){
+                newTransformDict[key] = transformDict[effect[key]];
+            }
+            transformDict = newTransformDict;
+        }
+    }
+
+    // push each rotation onto the start of the alg by transforming the subsequent moves
+    let movesArr = rotationFreeAlg.trim().split(" ").filter(Boolean);
+    let transformedMoves = [];
+    for (let i=0; i<movesArr.length; i++){
+        let mv = movesArr[i];
+        let [side, times] = parseMove(mv);
+        if (!side) continue;
+        // skip rotations already (shouldn't exist here)
+        if ("xyz".includes(side)) continue;
+        let base = transformDict[side] || side;
+        // rebuild
+        let suf = "";
+        if (times === 2) suf = "2";
+        else if (times === 3) suf = "'";
+        transformedMoves.push(base + suf);
+    }
+
+    const rotPrefix = rotationsArr.length ? (rotationsArr.join(" ") + " ") : "";
+    return rotPrefix + transformedMoves.join(" ") + (transformedMoves.length ? " " : "");
+  }
+
+  // Minimal simplify: merges consecutive identical bases (including x/y/z, M/E/S, lowercases).
+  function simplifyAlg(algText) {
+    const toks = String(algText || '').trim().split(/\s+/).filter(Boolean).map(t => t.replace(/2'/g,'2'));
+    const out = [];
+    const parseTok = (tok) => {
+      const m = tok.match(/^([A-Za-z]+w?)(2|')?$/);
+      if (!m) return { base: tok, amt: 1 };
+      const base = m[1];
+      const suf = m[2] || '';
+      let amt = 1;
+      if (suf === "2") amt = 2;
+      else if (suf === "'") amt = 3;
+      return { base, amt };
+    };
+    const encode = (base, amt) => {
+      const a = ((amt % 4) + 4) % 4;
+      if (a === 0) return null;
+      if (a === 1) return base;
+      if (a === 2) return base + "2";
+      if (a === 3) return base + "'";
+      return base;
+    };
+    for (const tok of toks) {
+      const cur = parseTok(tok);
+      if (out.length > 0) {
+        const prev = parseTok(out[out.length-1]);
+        if (prev.base === cur.base) {
+          const merged = encode(prev.base, prev.amt + cur.amt);
+          out.pop();
+          if (merged) out.push(merged);
+          continue;
+        }
+      }
+      out.push(tok);
+    }
+    return out.join(" ");
+  }
+
+  function getPremoves(length) {
+    var previous = "U"; // prevents first move from being U or D
+    var moveset = ['U', 'R', 'F', 'D', 'L', 'B'];
+    var amts = [" ","' "];
+    var randmove = "";
+    var sequence = "";
+    for (let i=0; i<length; i++) {
+        do {
+            randmove = moveset[Math.floor(Math.random()*moveset.length)];
+        } while (previous != "" && (randmove === previous || Math.abs(moveset.indexOf(randmove) - moveset.indexOf(previous)) === 3))
+        previous = randmove;
+        sequence += randmove;
+        sequence += amts[Math.floor(Math.random()*amts.length)];
+    }
+    return sequence;
+  }
+  function getPostmoves(length) {
+    var previous = "";
+    var moveset = ['U', 'R', 'F', 'D', 'L', 'B'];
+    var amts = [" ","' ", "2 "];
+    var randmove = "";
+    var sequence = "";
+    for (let i=0; i<length; i++) {
+        do {
+            randmove = moveset[Math.floor(Math.random()*moveset.length)];
+        } while (previous != "" && (randmove === previous || Math.abs(moveset.indexOf(randmove) - moveset.indexOf(previous)) === 3))
+        previous = randmove;
+        sequence += randmove;
+        sequence += amts[Math.floor(Math.random()*amts.length)];
+    }
+    return sequence;
+  }
+
+  // DOM-free extraction of Alg-Trainer's RubiksCube core (used by obfuscate)
+  function RubiksCube() {
+    this.cubestate = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6];
+
+    this.resetCube = function(){
+        this.cubestate = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6];
+    }
+    this.solution = function(){
+        var gcube = Cube.fromString(this.toString());
+        return gcube.solve();
+    }
+
+    this.isSolved = function(){
+        for (var i = 0; i<6;i++){
+            var colour1 = this.cubestate[9*i];
+            for (var j = 0; j<8; j++){
+                if (this.cubestate[9*i + j + 1]!=colour1){
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    this.wcaOrient = function() {
+        // u-r--f--d--l--b
+        // 4 13 22 31 40 49
+        //
+        var moves = "";
+
+        if (this.cubestate[13]==1) {//R face
+            this.doAlgorithm("z'");
+            moves +="z'";
+            moves += " ";
+        } else if (this.cubestate[22]==1) {//on F face
+            this.doAlgorithm("x");
+            moves+="x";
+            moves += " ";
+        } else if (this.cubestate[31]==1) {//on D face
+            this.doAlgorithm("x2");
+            moves+="x2";
+            moves += " ";
+        } else if (this.cubestate[40]==1) {//on L face
+            this.doAlgorithm("z");
+            moves+="z";
+            moves += " ";
+        } else if (this.cubestate[49]==1) {//on B face
+            this.doAlgorithm("x'");
+            moves+="x'";
+            moves += " ";
+        }
+
+        if (this.cubestate[13]==3) {//R face
+            this.doAlgorithm("y");
+            moves+="y";
+            moves += " ";
+        } else if (this.cubestate[40]==3) {//on L face
+            this.doAlgorithm("y'");
+            moves+="y'";
+            moves += " ";
+        } else if (this.cubestate[49]==3) {//on B face
+            this.doAlgorithm("y2");
+            moves+="y2";
+            moves += " ";
+        }
+
+        return moves;
+    }
+    this.toString = function(){
+        var str = "";
+        var i;
+        var sides = ["U","R","F","D","L","B"]
+        for(i=0;i<this.cubestate.length;i++){
+            str+=sides[this.cubestate[i]-1];
+        }
+        return str;
+
+    }
+
+
+    this.test = function(alg){
+        this.doAlgorithm(alg);
+        drawCube(this.cubestate);
+    }
+
+    this.doAlgorithm = function(alg) {
+        if (alg == "") return;
+
+        var moveArr = alg.split(/(?=[A-Za-z])/);
+        var i;
+
+        for (i = 0;i<moveArr.length;i++) {
+            var move = moveArr[i];
+            var myRegexp = /([RUFBLDrufbldxyzEMS])(\d*)('?)/g;
+            var match = myRegexp.exec(move.trim());
+
+
+            if (match!=null) {
+
+                var side = match[1];
+
+                var times = 1;
+                if (!match[2]=="") {
+                    times = match[2] % 4;
+                }
+
+                if (match[3]=="'") {
+                    times = (4 - times) % 4;
+                }
+
+                switch (side) {
+                    case "R":
+                        this.doR(times);
+                        break;
+                    case "U":
+                        this.doU(times);
+                        break;
+                    case "F":
+                        this.doF(times);
+                        break;
+                    case "B":
+                        this.doB(times);
+                        break;
+                    case "L":
+                        this.doL(times);
+                        break;
+                    case "D":
+                        this.doD(times);
+                        break;
+                    case "r":
+                        this.doRw(times);
+                        break;
+                    case "u":
+                        this.doUw(times);
+                        break;
+                    case "f":
+                        this.doFw(times);
+                        break;
+                    case "b":
+                        this.doBw(times);
+                        break;
+                    case "l":
+                        this.doLw(times);
+                        break;
+                    case "d":
+                        this.doDw(times);
+                        break;
+                    case "x":
+                        this.doX(times);
+                        break;
+                    case "y":
+                        this.doY(times);
+                        break;
+                    case "z":
+                        this.doZ(times);
+                        break;
+                    case "E":
+                        this.doE(times);
+                        break;
+                    case "M":
+                        this.doM(times);
+                        break;
+                    case "S":
+                        this.doS(times);
+                        break;
+
+                }
+            } else {
+
+                console.log("Invalid alg, or no alg specified:" + alg + "|");
+
+            }
+
+        }
+
+    }
+
+    this.solveNoRotate = function(){
+        //Center sticker indexes: 4, 13, 22, 31, 40, 49
+        cubestate = this.cubestate;
+        this.cubestate = [cubestate[4],cubestate[4],cubestate[4],cubestate[4],cubestate[4],cubestate[4],cubestate[4],cubestate[4],cubestate[4],
+                          cubestate[13],cubestate[13],cubestate[13],cubestate[13],cubestate[13],cubestate[13],cubestate[13],cubestate[13],cubestate[13],
+                          cubestate[22],cubestate[22],cubestate[22],cubestate[22],cubestate[22],cubestate[22],cubestate[22],cubestate[22],cubestate[22],
+                          cubestate[31],cubestate[31],cubestate[31],cubestate[31],cubestate[31],cubestate[31],cubestate[31],cubestate[31],cubestate[31],
+                          cubestate[40],cubestate[40],cubestate[40],cubestate[40],cubestate[40],cubestate[40],cubestate[40],cubestate[40],cubestate[40],
+                          cubestate[49],cubestate[49],cubestate[49],cubestate[49],cubestate[49],cubestate[49],cubestate[49],cubestate[49],cubestate[49]];
+    }
+
+    this.doU = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[6], cubestate[3], cubestate[0], cubestate[7], cubestate[4], cubestate[1], cubestate[8], cubestate[5], cubestate[2], cubestate[45], cubestate[46], cubestate[47], cubestate[12], cubestate[13], cubestate[14], cubestate[15], cubestate[16], cubestate[17], cubestate[9], cubestate[10], cubestate[11], cubestate[21], cubestate[22], cubestate[23], cubestate[24], cubestate[25], cubestate[26], cubestate[27], cubestate[28], cubestate[29], cubestate[30], cubestate[31], cubestate[32], cubestate[33], cubestate[34], cubestate[35], cubestate[18], cubestate[19], cubestate[20], cubestate[39], cubestate[40], cubestate[41], cubestate[42], cubestate[43], cubestate[44], cubestate[36], cubestate[37], cubestate[38], cubestate[48], cubestate[49], cubestate[50], cubestate[51], cubestate[52], cubestate[53]];
+        }
+
+    }
+
+    this.doR = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+
+            this.cubestate = [cubestate[0], cubestate[1], cubestate[20], cubestate[3], cubestate[4], cubestate[23], cubestate[6], cubestate[7], cubestate[26], cubestate[15], cubestate[12], cubestate[9], cubestate[16], cubestate[13], cubestate[10], cubestate[17], cubestate[14], cubestate[11], cubestate[18], cubestate[19], cubestate[29], cubestate[21], cubestate[22], cubestate[32], cubestate[24], cubestate[25], cubestate[35], cubestate[27], cubestate[28], cubestate[51], cubestate[30], cubestate[31], cubestate[48], cubestate[33], cubestate[34], cubestate[45], cubestate[36], cubestate[37], cubestate[38], cubestate[39], cubestate[40], cubestate[41], cubestate[42], cubestate[43], cubestate[44], cubestate[8], cubestate[46], cubestate[47], cubestate[5], cubestate[49], cubestate[50], cubestate[2], cubestate[52], cubestate[53]]
+        }
+
+    }
+
+    this.doF = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[0], cubestate[1], cubestate[2], cubestate[3], cubestate[4], cubestate[5], cubestate[44], cubestate[41], cubestate[38], cubestate[6], cubestate[10], cubestate[11], cubestate[7], cubestate[13], cubestate[14], cubestate[8], cubestate[16], cubestate[17], cubestate[24], cubestate[21], cubestate[18], cubestate[25], cubestate[22], cubestate[19], cubestate[26], cubestate[23], cubestate[20], cubestate[15], cubestate[12], cubestate[9], cubestate[30], cubestate[31], cubestate[32], cubestate[33], cubestate[34], cubestate[35], cubestate[36], cubestate[37], cubestate[27], cubestate[39], cubestate[40], cubestate[28], cubestate[42], cubestate[43], cubestate[29], cubestate[45], cubestate[46], cubestate[47], cubestate[48], cubestate[49], cubestate[50], cubestate[51], cubestate[52], cubestate[53]];
+        }
+
+    }
+
+    this.doD = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[0], cubestate[1], cubestate[2], cubestate[3], cubestate[4], cubestate[5], cubestate[6], cubestate[7], cubestate[8], cubestate[9], cubestate[10], cubestate[11], cubestate[12], cubestate[13], cubestate[14], cubestate[24], cubestate[25], cubestate[26], cubestate[18], cubestate[19], cubestate[20], cubestate[21], cubestate[22], cubestate[23], cubestate[42], cubestate[43], cubestate[44], cubestate[33], cubestate[30], cubestate[27], cubestate[34], cubestate[31], cubestate[28], cubestate[35], cubestate[32], cubestate[29], cubestate[36], cubestate[37], cubestate[38], cubestate[39], cubestate[40], cubestate[41], cubestate[51], cubestate[52], cubestate[53], cubestate[45], cubestate[46], cubestate[47], cubestate[48], cubestate[49], cubestate[50], cubestate[15], cubestate[16], cubestate[17]];
+        }
+
+    }
+
+    this.doL = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[53], cubestate[1], cubestate[2], cubestate[50], cubestate[4], cubestate[5], cubestate[47], cubestate[7], cubestate[8], cubestate[9], cubestate[10], cubestate[11], cubestate[12], cubestate[13], cubestate[14], cubestate[15], cubestate[16], cubestate[17], cubestate[0], cubestate[19], cubestate[20], cubestate[3], cubestate[22], cubestate[23], cubestate[6], cubestate[25], cubestate[26], cubestate[18], cubestate[28], cubestate[29], cubestate[21], cubestate[31], cubestate[32], cubestate[24], cubestate[34], cubestate[35], cubestate[42], cubestate[39], cubestate[36], cubestate[43], cubestate[40], cubestate[37], cubestate[44], cubestate[41], cubestate[38], cubestate[45], cubestate[46], cubestate[33], cubestate[48], cubestate[49], cubestate[30], cubestate[51], cubestate[52], cubestate[27]];
+        }
+
+    }
+
+    this.doB = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[11], cubestate[14], cubestate[17], cubestate[3], cubestate[4], cubestate[5], cubestate[6], cubestate[7], cubestate[8], cubestate[9], cubestate[10], cubestate[35], cubestate[12], cubestate[13], cubestate[34], cubestate[15], cubestate[16], cubestate[33], cubestate[18], cubestate[19], cubestate[20], cubestate[21], cubestate[22], cubestate[23], cubestate[24], cubestate[25], cubestate[26], cubestate[27], cubestate[28], cubestate[29], cubestate[30], cubestate[31], cubestate[32], cubestate[36], cubestate[39], cubestate[42], cubestate[2], cubestate[37], cubestate[38], cubestate[1], cubestate[40], cubestate[41], cubestate[0], cubestate[43], cubestate[44], cubestate[51], cubestate[48], cubestate[45], cubestate[52], cubestate[49], cubestate[46], cubestate[53], cubestate[50], cubestate[47]];
+        }
+
+    }
+
+    this.doE = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[0], cubestate[1], cubestate[2], cubestate[3], cubestate[4], cubestate[5], cubestate[6], cubestate[7], cubestate[8], cubestate[9], cubestate[10], cubestate[11], cubestate[21], cubestate[22], cubestate[23], cubestate[15], cubestate[16], cubestate[17], cubestate[18], cubestate[19], cubestate[20], cubestate[39], cubestate[40], cubestate[41], cubestate[24], cubestate[25], cubestate[26], cubestate[27], cubestate[28], cubestate[29], cubestate[30], cubestate[31], cubestate[32], cubestate[33], cubestate[34], cubestate[35], cubestate[36], cubestate[37], cubestate[38], cubestate[48], cubestate[49], cubestate[50], cubestate[42], cubestate[43], cubestate[44], cubestate[45], cubestate[46], cubestate[47], cubestate[12], cubestate[13], cubestate[14], cubestate[51], cubestate[52], cubestate[53]];
+        }
+
+    }
+
+    this.doM = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[0], cubestate[52], cubestate[2], cubestate[3], cubestate[49], cubestate[5], cubestate[6], cubestate[46], cubestate[8], cubestate[9], cubestate[10], cubestate[11], cubestate[12], cubestate[13], cubestate[14], cubestate[15], cubestate[16], cubestate[17], cubestate[18], cubestate[1], cubestate[20], cubestate[21], cubestate[4], cubestate[23], cubestate[24], cubestate[7], cubestate[26], cubestate[27], cubestate[19], cubestate[29], cubestate[30], cubestate[22], cubestate[32], cubestate[33], cubestate[25], cubestate[35], cubestate[36], cubestate[37], cubestate[38], cubestate[39], cubestate[40], cubestate[41], cubestate[42], cubestate[43], cubestate[44], cubestate[45], cubestate[34], cubestate[47], cubestate[48], cubestate[31], cubestate[50], cubestate[51], cubestate[28], cubestate[53]];
+        }
+
+    }
+
+    this.doS = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.cubestate = [cubestate[0], cubestate[1], cubestate[2], cubestate[43], cubestate[40], cubestate[37], cubestate[6], cubestate[7], cubestate[8], cubestate[9], cubestate[3], cubestate[11], cubestate[12], cubestate[4], cubestate[14], cubestate[15], cubestate[5], cubestate[17], cubestate[18], cubestate[19], cubestate[20], cubestate[21], cubestate[22], cubestate[23], cubestate[24], cubestate[25], cubestate[26], cubestate[27], cubestate[28], cubestate[29], cubestate[16], cubestate[13], cubestate[10], cubestate[33], cubestate[34], cubestate[35], cubestate[36], cubestate[30], cubestate[38], cubestate[39], cubestate[31], cubestate[41], cubestate[42], cubestate[32], cubestate[44], cubestate[45], cubestate[46], cubestate[47], cubestate[48], cubestate[49], cubestate[50], cubestate[51], cubestate[52], cubestate[53]];
+        }
+
+    }
+
+    this.doX = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doR(1);
+            this.doM(3);
+            this.doL(3);
+        }
+    }
+
+    this.doY = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+
+            this.doU(1);
+            this.doE(3);
+            this.doD(3);
+        }
+    }
+
+    this.doZ = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+
+            this.doF(1);
+            this.doS(1);
+            this.doB(3);
+        }
+    }
+
+    this.doUw = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doE(3);
+            this.doU(1);
+
+        }
+
+    }
+
+    this.doRw = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doM(3);
+            this.doR(1);
+        }
+
+    }
+
+    this.doFw = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doS(1);
+            this.doF(1);
+        }
+
+    }
+
+    this.doDw = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doE(1);
+            this.doD(1);
+        }
+
+    }
+
+    this.doLw = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doM(1);
+            this.doL(1);
+        }
+
+    }
+
+    this.doBw = function(times) {
+        var i;
+        for (i = 0; i < times; i++) {
+            cubestate = this.cubestate;
+            this.doS(3);
+            this.doB(1);
+        }
+
+    }
+}
+
+  function obfuscate(algorithm, numPremoves=3, minLength=16, numPostmoves=0){
+    var premoves = getPremoves(numPremoves);
+    var postmoves = getPostmoves(numPostmoves);
+
+    const rc = new RubiksCube();
+    // Alg-Trainer expects `algorithm` to be a scramble. It inverts it internally.
+    rc.doAlgorithm(postmoves + invertCompact(algorithm) + premoves);
+    var o = rc.wcaOrient(); 
+    ensureCubeSolver();
+    var solution = rc.solution();
+
+    var obAlg = moveRotationsToStart(premoves, o) + solution  + postmoves;
+    obAlg = simplifyAlg(obAlg).replace(/2'/g, "2").trim();
+    return obAlg.split(" ").length >= minLength ? obAlg : obfuscate(algorithm, numPremoves+1, minLength, numPostmoves);
+  }
+
+  function generatePreScrambleFromSolution(rawSolutionAlg, generatorCSV, times){
+    const genArray = String(generatorCSV || '').split(',').filter(Boolean);
+    let scramble = "";
+    for (let i=0; i<times; i++){
+      const rand = Math.floor(Math.random()*genArray.length);
+      scramble += String(genArray[rand] || '').replace(/\s+/g,'').replace(/2'/g,'2');
+    }
+    scramble += invertCompact(rawSolutionAlg);
+    return obfuscate(scramble);
+  }
+
+  return {
+    obfuscate,
+    invertCompact,
+    generatePreScrambleFromSolution,
+    simplifyAlg
+  };
+})();
+
 async function generatePracticeScrambleText() {
   const raw = _pickRandomAlgFromSet(currentEvent);
   if (!raw) return '';
 
   // Practice events (OLL/PLL/ZBLS/ZBLL):
-  // Produce a *pure* setup scramble for debugging: invert the case alg only.
-  // No AUF, no rotation normalization, no move merging/cancellation.
-  let algText = _cleanAlg(raw);
+  // Use Alg-Trainer compatible "real scramble" generation for stability.
+  // Keep case selection logic intact; only the conversion from case-alg -> scramble is swapped.
+  let solAlg = _cleanAlg(raw).replace(/2'/g, '2');
 
-  // ZBLS hand mode (R/L): mirror the *solution alg* first, then invert once.
+  // ZBLS hand mode (R/L): mirror the *solution alg* (swap R/L and invert each token),
+  // then generate scramble from that mirrored solution.
   if (String(currentEvent || '').trim() === 'p_zbls' && practiceZblsHand === 'L') {
-    algText = _swapRLAndInvertAlgString(algText);
+    solAlg = _swapRLAndInvertAlgString(solAlg).replace(/2'/g, '2');
   }
 
-  const inv = _invertAlgString(algText);
-  return _cleanAlg(inv);
+  const ev = String(currentEvent || '').trim();
+
+  // Alg-Trainer preset generators
+  const GEN_ZBLL = "RBR'FRB'R'F',RUR'URU2R',U,R'U'RU'R'U2R,F2U'R'LF2L'RU'F2";
+  const GEN_PLL  = "R'FR'B2'RF'R'B2'R2,F2U'R'LF2RL'U'F2,U";
+
+  if (ev === 'p_oll' || ev === 'p_pll') {
+    // Alg-Trainer: OLL/PLL => PLL-style prescramble, then obfuscate
+    return PRACTICE_AT.generatePreScrambleFromSolution(solAlg, GEN_PLL, 100);
+  }
+
+  if (ev === 'p_zbls' || ev === 'p_zbll') {
+    // Alg-Trainer: ZBLS/ZBLL => heavier prescramble, then obfuscate
+    return PRACTICE_AT.generatePreScrambleFromSolution(solAlg, GEN_ZBLL, 1000);
+  }
+
+  // Fallback (shouldn't happen): mimic Alg-Trainer "obfuscate inverse"
+  const baseScramble = PRACTICE_AT.invertCompact(solAlg);
+  return PRACTICE_AT.obfuscate(baseScramble);
 }
 
 const suffixes = ["", "'", "2"];
